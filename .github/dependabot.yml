@@ -1,29 +1,21 @@
 version: 2
 updates:
   - package-ecosystem: pip
-    directory: "/api"
+    directory: "/"
     schedule:
       interval: weekly
-    groups:
-      python-dependencies:
-        patterns:
-          - "*"
-    labels:
-      - dependencies
 
   - package-ecosystem: docker
-    directory: "/api"
+    directory: "/"
     schedule:
       interval: weekly
-    labels:
-      - dependencies
-      - docker
 
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: weekly
-    groups:
-      github-actions:
-        patterns:
-          - "*"
+
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
