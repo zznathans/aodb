@@ -1,8 +1,18 @@
 name: Docker
 
+# Triggered via workflow_dispatch from release.yml (not `release: published`
+# - GITHUB_TOKEN-created releases don't fire that event, see release.yml's
+# comment) with the just-created tag as an input. `release: published` is
+# also kept as a trigger so a manually-published/edited release (via the
+# web UI, not GITHUB_TOKEN) still works the normal way.
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The app-vX.Y.Z release tag to build/push"
+        required: true
 
 # Least-privilege default; each job below grants itself only what it actually needs.
 permissions: {}
@@ -10,15 +20,19 @@ permissions: {}
 jobs:
   build-and-push:
     name: Build and Push
-    if: startsWith(github.event.release.tag_name, 'app-v')
+    if: startsWith(github.event.inputs.tag || github.event.release.tag_name, 'app-v')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
       security-events: write
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
@@ -27,14 +41,25 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Compute image tags from the release tag
+        id: version
+        run: |
+          version="${RELEASE_TAG#app-v}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "major_minor=${version%.*}" >> "$GITHUB_OUTPUT"
+
+      # type=raw rather than type=match/type=semver against github.ref: this
+      # job is dispatched via workflow_dispatch (see the on: block above),
+      # so github.ref is the branch the dispatch ran against, not the tag -
+      # the tag only exists as the `tag` input, already parsed above.
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
         with:
           images: ghcr.io/zznathans/aodb
           tags: |
-            type=match,pattern=app-v(.*),group=1
-            type=match,pattern=app-v(\d+\.\d+)\.\d+,group=1
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=${{ steps.version.outputs.major_minor }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
@@ -93,15 +118,19 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          token: ${{ secrets.RELEASE_PAT }}
 
+      # Opened with GITHUB_TOKEN, not a PAT - the tradeoff is this PR won't
+      # auto-trigger CI (GitHub's anti-recursion rule again, see
+      # release.yml), so it needs a manual re-run/approval before merging.
+      # Preferred over holding a broadly-scoped PAT as a repo secret just
+      # for this.
       - name: Bump chart/values.yaml image tag and open a PR
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           version="${RELEASE_TAG#app-v}"
 

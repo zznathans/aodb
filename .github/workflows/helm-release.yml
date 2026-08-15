@@ -1,10 +1,11 @@
 name: Helm Release
 
 # Packages chart/ and attaches the .tgz to the chart-vX.Y.Z GitHub Release
-# that release.yml's multi-semantic-release run just created, via
-# `cr package`/`cr upload` - deliberately skipping `cr index`, so this repo
-# doesn't publish a browsable Helm chart index/gh-pages site (see the repo
-# README for why - install straight from the release asset instead).
+# that release.yml's multi-semantic-release run just created, then publishes
+# it to a Helm chart index at gh-pages:charts/ (served at
+# https://aodb.ao.yeetbox.net/charts/, alongside the app's README doc site
+# published by pages.yml on the same branch/domain, different path) so
+# `helm repo add` works.
 #
 # chart/Chart.yaml's version/appVersion is updated in this job's own
 # checkout just before packaging (cr package reads it to name the
@@ -12,29 +13,41 @@ name: Helm Release
 # gated PR merge before every chart release. main gets a small non-blocking
 # "sync Chart.yaml" PR afterward, same shape as docker.yml's image-tag-bump
 # PR, purely for repo-state hygiene.
+#
+# Triggered via workflow_dispatch from release.yml (not `release: published`
+# - GITHUB_TOKEN-created releases don't fire that event, see release.yml's
+# comment) with the just-created tag as an input. `release: published` is
+# also kept as a trigger so a manually-published/edited release still works.
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The chart-vX.Y.Z release tag to package"
+        required: true
 
 permissions: {}
 
 jobs:
   package-and-upload:
     name: Package and upload chart
-    if: startsWith(github.event.release.tag_name, 'chart-v')
+    if: startsWith(github.event.inputs.tag || github.event.release.tag_name, 'chart-v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
         with:
           version: "3.17.0"
 
       - name: Set Chart.yaml version to match the release tag
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           version="${RELEASE_TAG#chart-v}"
           sh scripts/bump-chart-version.sh "$version"
@@ -45,8 +58,54 @@ jobs:
       - name: Upload package to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: gh release upload "$RELEASE_TAG" .cr-release-packages/*.tgz --repo "${{ github.repository }}"
+
+      - name: Upload packaged chart artifact
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: packaged-chart
+          path: .cr-release-packages/*.tgz
+          retention-days: 1
+
+  publish-index:
+    name: Publish Helm index to gh-pages
+    needs: package-and-upload
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: packaged-chart
+          path: .cr-release-packages
+
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+        with:
+          version: "3.17.0"
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: gh-pages
+
+      - name: Add the new package and regenerate charts/index.yaml
+        run: |
+          mkdir -p charts
+          cp .cr-release-packages/*.tgz charts/
+          helm repo index charts --url https://aodb.ao.yeetbox.net/charts --merge charts/index.yaml
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add charts
+          if git diff --cached --quiet; then
+            echo "Index already up to date, nothing to do."
+            exit 0
+          fi
+          git commit -m "chore(charts): publish ${RELEASE_TAG} to the index"
+          git push origin gh-pages
 
   sync-chart-yaml:
     name: Sync Chart.yaml on main
@@ -55,15 +114,17 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          token: ${{ secrets.RELEASE_PAT }}
 
+      # Opened with GITHUB_TOKEN, not a PAT - see docker.yml's
+      # bump-chart-image-tag job for why (same tradeoff: no auto CI run on
+      # this PR, needs a manual re-run/approval before merging).
       - name: Bump Chart.yaml and open a PR
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           version="${RELEASE_TAG#chart-v}"
           sh scripts/bump-chart-version.sh "$version"

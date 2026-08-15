@@ -10,9 +10,19 @@ name: Sync READMEs to gh-pages
 # app's docs) and only syncs api/README.md (+ anything it links to), not
 # chart/README.md - the chart's docs live in the release asset / repo
 # browser instead, see helm-release.yml.
+#
+# Triggered via workflow_dispatch from release.yml (not `release: published`
+# - GITHUB_TOKEN-created releases don't fire that event, see release.yml's
+# comment) with the just-created tag as an input. `release: published` is
+# also kept as a trigger so a manually-published/edited release still works.
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The app-vX.Y.Z release tag that triggered this sync"
+        required: true
 
 # Least-privilege default; each job below grants itself only what it actually needs.
 permissions: {}
@@ -20,7 +30,7 @@ permissions: {}
 jobs:
   sync-readmes:
     runs-on: ubuntu-latest
-    if: startsWith(github.event.release.tag_name, 'app-v')
+    if: startsWith(github.event.inputs.tag || github.event.release.tag_name, 'app-v')
     permissions:
       contents: write
     steps:

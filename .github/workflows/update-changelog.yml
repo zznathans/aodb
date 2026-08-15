@@ -4,9 +4,19 @@ name: Update CHANGELOG
 # stream's tag fired the release (app-v* / chart-v*) - the two packages
 # version independently (see release.yml), so they keep separate
 # changelogs too.
+#
+# Triggered via workflow_dispatch from release.yml (not `release: published`
+# - GITHUB_TOKEN-created releases don't fire that event, see release.yml's
+# comment) with the just-created tag as an input. `release: published` is
+# also kept as a trigger so a manually-published/edited release still works.
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The app-vX.Y.Z or chart-vX.Y.Z release tag"
+        required: true
 
 # Least-privilege default; each job below grants itself only what it actually needs.
 permissions: {}
@@ -14,15 +24,16 @@ permissions: {}
 jobs:
   update-changelog:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          token: ${{ secrets.RELEASE_PAT }}
 
       - name: Determine which package's changelog to update
         id: target
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           case "$RELEASE_TAG" in
             app-v*) echo "path=api/CHANGELOG.md" >> "$GITHUB_OUTPUT" ;;
@@ -30,17 +41,20 @@ jobs:
             *) echo "Unrecognized tag format: $RELEASE_TAG" >&2; exit 1 ;;
           esac
 
+      # Fetched via `gh release view` rather than github.event.release.* -
+      # those fields are only populated on the `release: published` trigger,
+      # not workflow_dispatch (the normal path here, see the on: block).
       - name: Prepend release notes
         env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
-          RELEASE_BODY: ${{ github.event.release.body }}
-          RELEASE_DATE: ${{ github.event.release.published_at }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHANGELOG_PATH: ${{ steps.target.outputs.path }}
         run: |
+          release_date=$(gh release view "$RELEASE_TAG" --json publishedAt --jq .publishedAt)
+          release_body=$(gh release view "$RELEASE_TAG" --json body --jq .body)
           {
-            echo "## ${RELEASE_TAG} (${RELEASE_DATE%%T*})"
+            echo "## ${RELEASE_TAG} (${release_date%%T*})"
             echo
-            echo "$RELEASE_BODY"
+            echo "$release_body"
             echo
             if [ -f "$CHANGELOG_PATH" ]; then
               cat "$CHANGELOG_PATH"
@@ -48,10 +62,12 @@ jobs:
           } > "${CHANGELOG_PATH}.new"
           mv "${CHANGELOG_PATH}.new" "$CHANGELOG_PATH"
 
+      # Opened with GITHUB_TOKEN, not a PAT - see docker.yml's
+      # bump-chart-image-tag job for why (same tradeoff: no auto CI run on
+      # this PR, needs a manual re-run/approval before merging).
       - name: Open a PR
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHANGELOG_PATH: ${{ steps.target.outputs.path }}
         run: |
           if git diff --quiet -- "$CHANGELOG_PATH"; then

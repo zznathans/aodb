@@ -7,8 +7,17 @@ name: Release
 # own api/.releaserc.json / chart/.releaserc.json controls its tagFormat
 # and plugins; neither commits anything back to main (no
 # @semantic-release/git), so branch protection on main is never a concern
-# here - only a git tag + GitHub Release get created via the API, same as
-# each repo did independently before the merge.
+# here - only a git tag + GitHub Release get created via the API.
+#
+# Uses the default GITHUB_TOKEN, not a PAT: GITHUB_TOKEN has everything
+# needed to create tags/releases given contents:write below. The catch is
+# GitHub's anti-recursion rule - events created *using* GITHUB_TOKEN
+# (including the release this job creates) never trigger other workflows'
+# `release: published` listeners. workflow_dispatch is explicitly exempted
+# from that rule, so instead of relying on the release event, this job
+# diffs tags before/after the release run and explicitly dispatches
+# docker.yml / helm-release.yml / pages.yml / update-changelog.yml for
+# whichever tag(s) actually got created.
 on:
   workflow_run:
     workflows: ["CI"]
@@ -16,7 +25,8 @@ on:
     types: [completed]
 
 permissions:
-  contents: read
+  contents: write
+  actions: write
 
 jobs:
   release:
@@ -26,22 +36,49 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       !contains(github.event.workflow_run.head_commit.message, '[skip ci]')
     steps:
-      # RELEASE_PAT: fine-grained PAT scoped to this repo (Contents: write,
-      # Pull requests: write). Needed instead of the default GITHUB_TOKEN
-      # because releases created with the default token don't trigger other
-      # workflows' `release: published` events, which docker.yml and
-      # helm-release.yml depend on.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           ref: main
-          token: ${{ secrets.RELEASE_PAT }}
 
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5
         with:
           node-version: "22"
 
+      - name: Record tags before release
+        run: git tag --list > /tmp/tags-before.txt
+
       - name: Run multi-semantic-release
         run: npx --yes multi-semantic-release
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dispatch downstream workflows for any newly-created tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git tag --list > /tmp/tags-after.txt
+          new_tags=$(comm -13 /tmp/tags-before.txt /tmp/tags-after.txt)
+
+          if [ -z "$new_tags" ]; then
+            echo "No new release - nothing to dispatch."
+            exit 0
+          fi
+
+          for tag in $new_tags; do
+            echo "New tag: $tag"
+            case "$tag" in
+              app-v*)
+                gh workflow run docker.yml -f tag="$tag"
+                gh workflow run pages.yml -f tag="$tag"
+                gh workflow run update-changelog.yml -f tag="$tag"
+                ;;
+              chart-v*)
+                gh workflow run helm-release.yml -f tag="$tag"
+                gh workflow run update-changelog.yml -f tag="$tag"
+                ;;
+              *)
+                echo "Unrecognized tag format, not dispatching anything: $tag" >&2
+                ;;
+            esac
+          done
