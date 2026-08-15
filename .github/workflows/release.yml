@@ -37,7 +37,7 @@ jobs:
           ref: main
           token: ${{ secrets.RELEASE_PAT }}
 
-      - uses: actions/setup-node@1a4442cacd436585916779262731d5b162bc6ec # v5
+      - uses: actions/setup-node@3d7870f6218881292d183093179901ae8dc2ef85 # v5
         with:
           node-version: "22"
 
