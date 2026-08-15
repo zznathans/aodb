@@ -33,14 +33,20 @@ aodbApi:
   # -- List of image pull secret names to attach to the ServiceAccount. Leave empty if the registry is public.
   imagePullSecrets: []
 
-  # -- Resource requests and limits for the app container.
+  # -- Resource requests and limits for the app container. The 256Mi memory
+  # limit was too tight for the dump-load step and OOMKilled pods mid-load
+  # in a real cluster (confirmed reproducible, not a one-off) - 512Mi gives
+  # real headroom above the ~65MB peak RSS the dump parser alone was
+  # measured at (app/dump_loader.py), which doesn't account for the rest of
+  # the process (interpreter, FastAPI/uvicorn, the Redis client, the raw
+  # HTTP response buffer) or growth in the dump/item schema over time.
   resources:
     requests:
       cpu: 50m
       memory: 128Mi
     limits:
       cpu: 250m
-      memory: 256Mi
+      memory: 512Mi
 
   service:
     # -- Port the Service listens on and forwards to the container's 8000.
