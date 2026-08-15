@@ -26,8 +26,8 @@ aodbApi:
     maxmemory: 500mb
 
     # -- maxmemory-policy directive for the bundled Redis instance. allkeys-lru is safe here
-    # since this instance is dedicated to this app and a fresh dump load flushes/repopulates it
-    # anyway - evicting under memory pressure beats refusing writes.
+    # since this instance is dedicated to this app - evicting under memory pressure beats
+    # refusing writes.
     maxmemoryPolicy: allkeys-lru
 
     image:

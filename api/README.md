@@ -98,7 +98,11 @@ strings under 3 characters can't use that index and fall back to a full scan
 instead (see the module docstring in `app/store.py` for the full design).
 
 Set `REDIS_URL` to point at Redis (default `redis://localhost:6379/0`). The
-Redis instance is assumed dedicated to this app - a fresh load flushes it.
+Redis instance is assumed dedicated to this app. A load never flushes first
+(so an in-progress or crashed load can't leave other pods reading an empty
+store) - it writes whatever ids aren't already present and skips the rest,
+which also makes reloading the same or overlapping dump cheap. Ids removed
+from a newer dump version aren't cleaned up automatically.
 
 ## Analytics
 

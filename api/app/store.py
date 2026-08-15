@@ -246,6 +246,20 @@ class ItemStore:
         return self._by_name_key()
 
     async def load(self, items: list[Item]) -> None:
+        """Writes every item that isn't already in Redis - never flushes
+        first. A previous load that crashed or got OOMKilled partway
+        through used to leave the store either empty (if a flush had
+        already run) or a confusing mix of old and new data, and every
+        other pod's traffic saw that directly since nothing else guards
+        reads against an in-progress load. Skipping ids that already exist
+        also makes a reload of the same or overlapping dump far cheaper -
+        every Redis write here (HSET/ZADD/SADD) is idempotent anyway, so
+        this is purely about not re-doing the work, not correctness.
+
+        category_counts/subcategory_counts are still computed from the
+        full incoming list and written as a plain overwrite (not
+        incremented), so they stay accurate to the current dump regardless
+        of which individual items were actually (re)written this run."""
         client = get_redis()
 
         category_counts: dict[str, int] = {}
@@ -256,8 +270,11 @@ class ItemStore:
                 by_subcategory = subcategory_counts.setdefault(item.category, {})
                 by_subcategory[item.subcategory] = by_subcategory.get(item.subcategory, 0) + 1
 
-        for start in range(0, len(items), _BATCH_SIZE):
-            batch = items[start : start + _BATCH_SIZE]
+        existing_ids = {_member_id(m) for m in await client.zrange(self._by_name_key(), 0, -1)}
+        new_items = [item for item in items if item.id not in existing_ids]
+
+        for start in range(0, len(new_items), _BATCH_SIZE):
+            batch = new_items[start : start + _BATCH_SIZE]
             pipe = client.pipeline(transaction=False)
             for item in batch:
                 mapping: dict[str, str | int] = {
@@ -470,6 +487,8 @@ class NanoStore:
         return f"{self._prefix}:profession_counts"
 
     async def load(self, nanos: list[NanoProgram]) -> None:
+        """Writes every nano that isn't already in Redis - never flushes
+        first, same reasoning as ItemStore.load()."""
         client = get_redis()
 
         # The dump includes NPC-only buffs/effects alongside real
@@ -481,15 +500,25 @@ class NanoStore:
         # always carries flavor text).
         nanos = [nano for nano in nanos if nano.crystal_id is not None and nano.description]
 
-        # Aggregated in Python (the full nano list is already in memory for
-        # this call) rather than with per-item Redis commands.
+        # Aggregated in Python from the full incoming list and written as a
+        # plain overwrite below (not HINCRBY'd per-item as school_counts
+        # used to be) - since load() no longer flushes first, an
+        # incremental counter would keep adding onto whatever was already
+        # there across repeated loads instead of reflecting the current
+        # dump.
         profession_counts: dict[int, int] = {}
+        school_counts: dict[str, int] = {}
         for nano in nanos:
             if nano.profession is not None:
                 profession_counts[nano.profession] = profession_counts.get(nano.profession, 0) + 1
+            if nano.school:
+                school_counts[nano.school] = school_counts.get(nano.school, 0) + 1
 
-        for start in range(0, len(nanos), _BATCH_SIZE):
-            batch = nanos[start : start + _BATCH_SIZE]
+        existing_ids = {_member_id(m) for m in await client.zrange(self._by_name_key(), 0, -1)}
+        new_nanos = [nano for nano in nanos if nano.id not in existing_ids]
+
+        for start in range(0, len(new_nanos), _BATCH_SIZE):
+            batch = new_nanos[start : start + _BATCH_SIZE]
             pipe = client.pipeline(transaction=False)
             for nano in batch:
                 mapping: dict[str, str | int] = {
@@ -515,12 +544,12 @@ class NanoStore:
                 pipe.zadd(self._by_name_key(), {_member(nano.name_lower, nano.id): 0})
                 for trigram in _trigrams(nano.name_lower):
                     pipe.sadd(self._trigram_key(trigram), nano.id)
-                if nano.school:
-                    pipe.hincrby(self._school_counts_key(), nano.school, 1)
             await pipe.execute()
 
         if profession_counts:
             await client.hset(self._profession_counts_key(), mapping=profession_counts)
+        if school_counts:
+            await client.hset(self._school_counts_key(), mapping=school_counts)
 
     def _hash_to_nano(self, id_: int, h: dict[str, str]) -> NanoProgram:
         def _int_or_none(key: str) -> int | None:
@@ -663,13 +692,6 @@ class NanoStore:
         client = get_redis()
         h = await client.hgetall(self._profession_counts_key())
         return {int(profession): int(count) for profession, count in h.items()}
-
-
-async def reset_all() -> None:
-    """Wipes all item/nano data. Callers must do this before a fresh
-    load() (main.py's startup hook does) - load() itself only ever adds/
-    overwrites keys, it never removes stale ones from a previous dump."""
-    await get_redis().flushdb()
 
 
 # Single shared instances: the primary (app/api.py) and legacy (app/legacy.py)

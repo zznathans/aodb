@@ -16,7 +16,7 @@ from .legacy import router as legacy_router
 from .professions import router as professions_router
 from .redis_client import get_redis
 from .sitemap import router as sitemap_router
-from .store import nano_store, reset_all, store
+from .store import nano_store, store
 from .web import router as web_router
 
 # uvicorn/fastapi only configure their own named loggers (uvicorn,
@@ -90,9 +90,6 @@ async def _load_items() -> None:
             with open(os.environ["DUMP_PATH"], "rb") as f:
                 items, nanos = parse_dump_zip(f.read())
             logger.info("Parsed %d items (%d nano programs) from %s", len(items), len(nanos), os.environ["DUMP_PATH"])
-
-        logger.info("Flushing Redis before load")
-        await reset_all()
 
         logger.info("Writing %d items to Redis", len(items))
         await store.load(items)

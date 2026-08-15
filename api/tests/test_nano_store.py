@@ -133,3 +133,36 @@ def test_effects_from_json_round_trips_real_effects():
     assert _effects_from_json(raw) == (
         Effect(hook="Wear", target="Self", action="Modify", attribute="Strength", value="10"),
     )
+
+
+async def test_load_does_not_flush_existing_data(fake_redis):
+    store = NanoStore()
+    await store.load([make_nano(id=1, name="Old Nano", crystal_id=1, description="x")])
+    await store.load([make_nano(id=2, name="New Nano", crystal_id=2, description="y")])
+
+    assert await store.get(1) is not None
+    assert await store.get(2) is not None
+
+
+async def test_load_skips_ids_that_already_exist(fake_redis):
+    store = NanoStore()
+    await store.load([make_nano(id=1, name="Original Name", crystal_id=1, description="x", ql=100)])
+    await store.load([make_nano(id=1, name="Changed Name", crystal_id=1, description="x", ql=200)])
+
+    nano = await store.get(1)
+    assert nano.name == "Original Name"
+    assert nano.ql == 100
+
+
+async def test_load_school_and_profession_counts_do_not_double_count_on_reload(fake_redis):
+    # school_counts used to be HINCRBY'd per item on every load() call -
+    # once load() stopped flushing first, that would keep adding onto
+    # itself forever on repeated loads of the same nano. Both counts are
+    # now recomputed from the full incoming list and overwritten instead.
+    store = NanoStore()
+    nano = make_nano(id=1, name="Death's Gaze", crystal_id=1, description="x", school="Combat", profession=5)
+    await store.load([nano])
+    await store.load([nano])
+
+    assert await store.school_counts() == {"Combat": 1}
+    assert await store.profession_counts() == {5: 1}
