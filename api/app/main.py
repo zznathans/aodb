@@ -9,7 +9,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 
-from .analytics import CLOUDFLARE_BEACON, GOOGLE_ANALYTICS_TAG
+from .analytics import analytics_snippet
 from .api import router as api_router
 from .dump_loader import import_from_url, parse_dump_zip
 from .legacy import router as legacy_router
@@ -128,7 +128,7 @@ app.include_router(sitemap_router)
 @app.get("/docs", include_in_schema=False)
 def docs() -> HTMLResponse:
     html = get_swagger_ui_html(openapi_url=app.openapi_url, title=f"{app.title} - Swagger UI").body.decode()
-    return HTMLResponse(html.replace("</head>", f"{CLOUDFLARE_BEACON}{GOOGLE_ANALYTICS_TAG}</head>"))
+    return HTMLResponse(html.replace("</head>", f"{analytics_snippet()}</head>"))
 
 
 @app.get("/", include_in_schema=False)

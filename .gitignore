@@ -7,6 +7,7 @@ __pycache__/
 *.lcov
 .venv/
 node_modules/
+api/app/templates/_analytics.html
 .cr-release-packages/
 chart/charts/*.tgz
 chart/Chart.lock

@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}aodb-api{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css">
-  {{ cloudflare_beacon | safe }}
-  {{ google_analytics_tag | safe }}
+  {% include "_analytics.html" ignore missing %}
 </head>
 <body>
   <header class="site-header">

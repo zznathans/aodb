@@ -1,0 +1,20 @@
+<!--
+Copy this file to _analytics.html (same directory) and fill in your own
+values to enable client-side analytics on /docs and every /browse/* page.
+_analytics.html is .gitignored - it never gets committed to this repo, and
+nothing here is included at all when that file doesn't exist. Whatever you
+put here is included as raw HTML, verbatim.
+
+Example: Cloudflare Web Analytics + Google Analytics (delete what you
+don't want, or replace with something else entirely).
+-->
+<script type='module' src='https://static.cloudflareinsights.com/beacon.min.js'
+  data-cf-beacon='{"token": "YOUR-CLOUDFLARE-BEACON-TOKEN"}'></script>
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-YOUR-MEASUREMENT-ID"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-YOUR-MEASUREMENT-ID');
+</script>

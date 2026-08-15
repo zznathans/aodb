@@ -1,4 +1,8 @@
+from pathlib import Path
+
 from app.store import make_item, make_nano, nano_store, store
+
+_ANALYTICS_PARTIAL = Path(__file__).parent.parent / "app" / "templates" / "_analytics.html"
 
 
 async def _seed_items():
@@ -157,16 +161,24 @@ async def test_static_files_are_served(client):
     assert "search-form" in js.text
 
 
-async def test_browse_pages_include_cloudflare_analytics_beacon(client):
-    # Regression guard: the beacon originally only rendered on /docs, which
-    # gets essentially no real traffic now that /browse/* is where users
-    # actually land - see app/templating.py's Jinja global.
+async def test_browse_pages_include_no_analytics_by_default(client):
+    # This repo used to hardcode real Cloudflare/GA tracking IDs here - a
+    # stock deployment (no app/templates/_analytics.html supplied) must
+    # ship with none at all.
     for path in ("/browse/", "/browse/items", "/browse/nanos"):
         resp = client.get(path)
-        assert "static.cloudflareinsights.com/beacon.min.js" in resp.text
+        assert "cloudflareinsights.com" not in resp.text
+        assert "googletagmanager.com" not in resp.text
 
 
-async def test_browse_pages_include_google_analytics_tag(client):
-    for path in ("/browse/items", "/browse/nanos"):
-        resp = client.get(path)
-        assert "googletagmanager.com/gtag/js?id=G-6SJKPHMGR3" in resp.text
+async def test_browse_pages_include_analytics_partial_when_present(client):
+    # Proves the {% include "_analytics.html" ignore missing %} mechanism
+    # itself actually works, using a throwaway file at the real path
+    # base.html includes from - cleaned up even if the test fails.
+    assert not _ANALYTICS_PARTIAL.exists()
+    _ANALYTICS_PARTIAL.write_text("<script>window.__test_analytics = true;</script>")
+    try:
+        resp = client.get("/browse/")
+        assert "window.__test_analytics = true;" in resp.text
+    finally:
+        _ANALYTICS_PARTIAL.unlink()
