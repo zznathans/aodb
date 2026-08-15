@@ -1,0 +1,28 @@
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "5 * * * *"  # every hour
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    name: Delete old test images
+    steps:
+      - name: Generate a token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.GH_APP_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+      - uses: snok/container-retention-policy@v3.1.0
+        with:
+          account: zznathans
+          token: ${{ secrets.PAT }}
+          image-names: "container-retention-policy"
+          cut-off: 3m
+          dry-run: true
+          keep-n-most-recent: 30
