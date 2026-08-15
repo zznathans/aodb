@@ -6,8 +6,9 @@ suffering Cloudflare 522 (origin timeout) outages. Implements the same
 query-string contract and returns the same raw AOML text BeBot expects, so
 it's a drop-in replacement via BeBot's `Items.CIDB` setting.
 
-See the [repo README](../README.md) for how this fits together with the
-[Helm chart](../chart/README.md.gotmpl) that deploys it.
+See the [repo README](https://github.com/zznathans/aodb#readme) for how
+this fits together with the [Helm chart](https://github.com/zznathans/aodb/tree/main/chart)
+that deploys it.
 
 ## Browsing
 
