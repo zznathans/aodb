@@ -12,9 +12,10 @@ that deploys it.
 
 ## Browsing
 
-`GET /` redirects to `/browse/items` - a server-rendered (Jinja2, no
-build step, no JS framework) UI for browsing/searching items and nanos
-by hand: `/browse/items` and `/browse/nanos`, each with a search form and
+`GET /` redirects to `/browse/` - a server-rendered (Jinja2, no build
+step, no JS framework) landing page with overall item/nano counts and a
+nanos-by-school breakdown, linking into `/browse/items` and
+`/browse/nanos` for searching by hand. Each has a search form and
 paginated results linking to a `/browse/items/{aoid}` /
 `/browse/nanos/{aoid}` detail page. Works with JavaScript disabled (plain
 GET forms and links); `app/static/search.js` progressively enhances
@@ -90,6 +91,16 @@ substring match - `q=smg` will not match "Combat SMG".
 
 Set `REDIS_URL` to point at Redis (default `redis://localhost:6379/0`). The
 Redis instance is assumed dedicated to this app - a fresh load flushes it.
+
+## Analytics
+
+`/browse/*` pages carry Cloudflare Web Analytics and Google Analytics
+beacons (`app/analytics.py`) - client-side, no server involvement. On top
+of that, request-level analytics (method, path, status, response time)
+can optionally be forwarded to [api-analytics](https://github.com/tom-draper/api-analytics)
+by setting `API_ANALYTICS_KEY`; without it, that middleware simply isn't
+registered (see `app/main.py`). Client IPs are never sent
+(`privacy_level=2`).
 
 ## Local development
 
