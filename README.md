@@ -1,8 +1,8 @@
 # aodb
 
-[![CI](https://github.com/zznathans/aodb/actions/workflows/ci.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/ci.yml)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/zznathans/aodb/badge)](https://scorecard.dev/viewer/?uri=github.com/zznathans/aodb)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![CI](https://github.com/zznathans/aodb/actions/workflows/ci.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/ci.yml)<br>
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/zznathans/aodb/badge)](https://scorecard.dev/viewer/?uri=github.com/zznathans/aodb)<br>
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)<br>
 
 Self-hosted replacement for the third-party "Central Item Database"
 (`cidb.bebot.link`) that BeBot's `!items` command relies on, which has been
