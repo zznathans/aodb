@@ -6,24 +6,46 @@ Key schema (all keys use decode_responses=True string values):
   item:{id}                    hash: name, ql, icon, description?
   items:by_name                zset: member "{name_lower}\\0{id}", score 0
   items:by_name:ql:{ql}        zset: same members, items with that exact ql
+  items:trigram:{trigram}      set: item ids whose name contains that
+                                3-char substring (see _trigrams below)
 
   nano:{id}                    hash: name, ql, icon, description?, school?,
                                 strain?, nanocost?, ncu?, crystal_id?,
                                 duration?, profession?, requirements (JSON)
   nanos:by_name                zset: member "{name_lower}\\0{id}", score 0
+  nanos:trigram:{trigram}      set: nano ids, same idea as items:trigram:*
 
-Name search is prefix-only (ZRANGEBYLEX on the *_by_name zsets), not the
-substring match the old in-memory implementation did - substring matching
-isn't expressible as an efficient range query over plain Redis data
-structures, and pulling the whole dataset back to filter in Python for
-every request would defeat the point of not holding it in memory.
+Name search is substring, not prefix-only - the query can match anywhere
+in the name (e.g. "tank" finds "Notum Tank Armor"), matching what the old
+in-memory implementation used to do. A substring match isn't expressible
+as a single efficient Redis range query the way a prefix match is
+(ZRANGEBYLEX), so it's done in two steps: a 3-character sliding-window
+trigram index (populated in load(), see _trigrams) narrows the search down
+to a small candidate set of ids that plausibly contain the query - trigram
+co-occurrence is necessary but not sufficient for an actual contiguous
+substring match, so the candidates are fetched and re-checked for real in
+Python, which also gets the exact match set that different-order trigram
+intersections alone can't guarantee. Query strings shorter than 3 chars
+can't use the trigram index at all (there's no full 3-char window to look
+up) - those fall back to scanning every id in the narrowest available
+pre-built index (category/ql for items, everything for nanos) and checking
+the substring directly in Python. The same trade-off full-text search
+engines make for sub-trigram-length queries; short queries are rare and
+the fallback is still bounded by whatever category/ql narrowing is
+available.
+
+A blank query (the common "just browse" case, no search term at all) skips
+substring matching entirely and keeps the previous prefix-range behavior
+(ZRANGEBYLEX over the whole key), since "everything" doesn't need a
+candidate search - this keeps plain pagination as cheap as before.
 
 Items only ever filter by ql, so a per-ql zset gives an efficient combined
-(prefix + ql) index. Nanos additionally filter by school/profession, which
-aren't practical to pre-index for every combination; when either is
-supplied, all name-prefix matches are pulled back and filtered in Python
-before sorting/paging. That's fine at nano scale (~10.5k rows) but would
-not scale to the full item set - hence items don't do this.
+(prefix + ql) index, reused as the substring fallback's candidate source
+for sub-trigram-length queries. Nanos additionally filter by school/
+profession, which aren't practical to pre-index for every combination;
+whenever a query or any of those filters is supplied, matches are pulled
+back (trigram-narrowed when possible) and filtered by the rest in Python
+before sorting/paging.
 """
 
 import json
@@ -167,6 +189,14 @@ def _lex_range(prefix: str) -> tuple[str, str]:
 
 _BATCH_SIZE = 1000
 
+# Below this length there's no full 3-char window to index or look up - see
+# module docstring for the fallback used at that point.
+_TRIGRAM_MIN_LEN = 3
+
+
+def _trigrams(text: str) -> set[str]:
+    return {text[i : i + 3] for i in range(len(text) - 2)}
+
 
 class ItemStore:
     def __init__(self, key_prefix: str = "items") -> None:
@@ -189,6 +219,9 @@ class ItemStore:
 
     def _by_name_category_subcategory_key(self, category: str, subcategory: str) -> str:
         return f"{self._prefix}:by_name:category:{category}:subcategory:{subcategory}"
+
+    def _trigram_key(self, trigram: str) -> str:
+        return f"{self._prefix}:trigram:{trigram}"
 
     def _category_counts_key(self) -> str:
         return f"{self._prefix}:category_counts"
@@ -256,6 +289,8 @@ class ItemStore:
                     pipe.zadd(self._by_name_category_ql_key(item.category, item.ql), {member: 0})
                 if item.subcategory:
                     pipe.zadd(self._by_name_category_subcategory_key(item.category, item.subcategory), {member: 0})
+                for trigram in _trigrams(item.name_lower):
+                    pipe.sadd(self._trigram_key(trigram), item.id)
             await pipe.execute()
 
         if category_counts:
@@ -282,28 +317,68 @@ class ItemStore:
             damage_critical=_int_or_none("damage_critical"),
         )
 
-    async def count(self, query: str, ql: int, category: str = "", subcategory: str = "") -> int:
-        client = get_redis()
-        key = self._key_for(ql, category, subcategory)
-        lo, hi = _lex_range(query.lower())
-        return await client.zlexcount(key, lo, hi)
-
-    async def search(
-        self, query: str, ql: int, limit: int, offset: int = 0, category: str = "", subcategory: str = ""
-    ) -> list[Item]:
-        client = get_redis()
-        key = self._key_for(ql, category, subcategory)
-        lo, hi = _lex_range(query.lower())
-        members = await client.zrangebylex(key, lo, hi, start=offset, num=limit)
-        if not members:
+    async def _fetch_many(self, ids: list[int]) -> list[Item]:
+        if not ids:
             return []
-
-        ids = [_member_id(m) for m in members]
+        client = get_redis()
         pipe = client.pipeline(transaction=False)
         for id_ in ids:
             pipe.hgetall(self._item_key(id_))
         hashes = await pipe.execute()
         return [self._hash_to_item(id_, h) for id_, h in zip(ids, hashes) if h]
+
+    async def _trigram_candidate_ids(self, query: str) -> list[int]:
+        client = get_redis()
+        keys = [self._trigram_key(t) for t in _trigrams(query)]
+        members = await client.smembers(keys[0]) if len(keys) == 1 else await client.sinter(keys)
+        return [int(m) for m in members]
+
+    async def _candidate_ids(self, query: str, ql: int, category: str, subcategory: str) -> list[int]:
+        if len(query) >= _TRIGRAM_MIN_LEN:
+            return await self._trigram_candidate_ids(query)
+        # Too short for the trigram index (see module docstring) - fall
+        # back to the narrowest pre-built category/ql/subcategory index
+        # available and check the query in Python from there.
+        client = get_redis()
+        key = self._key_for(ql, category, subcategory)
+        members = await client.zrange(key, 0, -1)
+        return [_member_id(m) for m in members]
+
+    async def _substring_matches(self, query: str, ql: int, category: str, subcategory: str) -> list[Item]:
+        ids = await self._candidate_ids(query, ql, category, subcategory)
+        items = await self._fetch_many(ids)
+        matches = [
+            item
+            for item in items
+            if query in item.name_lower
+            and (not category or item.category == category)
+            and (not subcategory or item.subcategory == subcategory)
+            and (not ql or item.ql == ql)
+        ]
+        matches.sort(key=lambda item: item.name_lower)
+        return matches
+
+    async def count(self, query: str, ql: int, category: str = "", subcategory: str = "") -> int:
+        q = query.lower()
+        if not q:
+            client = get_redis()
+            key = self._key_for(ql, category, subcategory)
+            lo, hi = _lex_range("")
+            return await client.zlexcount(key, lo, hi)
+        return len(await self._substring_matches(q, ql, category, subcategory))
+
+    async def search(
+        self, query: str, ql: int, limit: int, offset: int = 0, category: str = "", subcategory: str = ""
+    ) -> list[Item]:
+        q = query.lower()
+        if not q:
+            client = get_redis()
+            key = self._key_for(ql, category, subcategory)
+            lo, hi = _lex_range("")
+            members = await client.zrangebylex(key, lo, hi, start=offset, num=limit)
+            return await self._fetch_many([_member_id(m) for m in members])
+        matches = await self._substring_matches(q, ql, category, subcategory)
+        return matches[offset : offset + limit]
 
     async def get(self, aoid: int) -> Item | None:
         client = get_redis()
@@ -322,14 +397,7 @@ class ItemStore:
         client = get_redis()
         lo, hi = f"[{name_lower}{_NUL}", f"({name_lower}{_NUL}\xff"
         members = await client.zrangebylex(self._by_name_key(), lo, hi)
-        ids = [_member_id(m) for m in members]
-        if not ids:
-            return []
-        pipe = client.pipeline(transaction=False)
-        for id_ in ids:
-            pipe.hgetall(self._item_key(id_))
-        hashes = await pipe.execute()
-        items = [self._hash_to_item(id_, h) for id_, h in zip(ids, hashes) if h]
+        items = await self._fetch_many([_member_id(m) for m in members])
         variants = [item for item in items if item.description == description]
         variants.sort(key=lambda item: item.ql)
         return variants
@@ -392,6 +460,9 @@ class NanoStore:
     def _by_name_key(self) -> str:
         return f"{self._prefix}:by_name"
 
+    def _trigram_key(self, trigram: str) -> str:
+        return f"{self._prefix}:trigram:{trigram}"
+
     def _school_counts_key(self) -> str:
         return f"{self._prefix}:school_counts"
 
@@ -442,6 +513,8 @@ class NanoStore:
                         mapping[field_name] = value
                 pipe.hset(self._nano_key(nano.id), mapping=mapping)
                 pipe.zadd(self._by_name_key(), {_member(nano.name_lower, nano.id): 0})
+                for trigram in _trigrams(nano.name_lower):
+                    pipe.sadd(self._trigram_key(trigram), nano.id)
                 if nano.school:
                     pipe.hincrby(self._school_counts_key(), nano.school, 1)
             await pipe.execute()
@@ -470,9 +543,19 @@ class NanoStore:
             effects=_effects_from_json(h.get("effects")),
         )
 
-    async def _matching_ids(self, query: str) -> list[int]:
+    async def _trigram_candidate_ids(self, query: str) -> list[int]:
         client = get_redis()
-        lo, hi = _lex_range(query.lower())
+        keys = [self._trigram_key(t) for t in _trigrams(query)]
+        members = await client.smembers(keys[0]) if len(keys) == 1 else await client.sinter(keys)
+        return [int(m) for m in members]
+
+    async def _candidate_ids(self, query: str) -> list[int]:
+        if len(query) >= _TRIGRAM_MIN_LEN:
+            return await self._trigram_candidate_ids(query)
+        # Too short for the trigram index (see module docstring) - there's
+        # no other pre-built index for nanos, so fall back to everything.
+        client = get_redis()
+        lo, hi = _lex_range("")
         members = await client.zrangebylex(self._by_name_key(), lo, hi)
         return [_member_id(m) for m in members]
 
@@ -487,15 +570,20 @@ class NanoStore:
         return [self._hash_to_nano(id_, h) for id_, h in zip(ids, hashes) if h]
 
     async def _filtered_matches(self, query: str, ql: int, school: str, profession: int | None) -> list[NanoProgram]:
-        """Pulls all name-prefix matches back and filters by ql/school/
-        profession in Python - see module docstring for why. Only used when
-        one of those filters is actually supplied.
+        """Pulls name-substring candidates back (trigram-narrowed when
+        possible - see module docstring) and filters by query/ql/school/
+        profession in Python. Used whenever a query or any of those filters
+        is supplied - a substring match can't be pushed down as a bounded
+        Redis range query the way a prefix match can, so this always
+        fetches the full candidate set, filters, sorts, and only slices for
+        the page at the very end (see search()).
 
         profession=0 is a sentinel meaning "no profession assigned" (the
         generic nanos every profession gets) - 0 is never a real profession
         id (see app/professions.py's PROFESSION_NAMES), so it's free to
         reuse rather than adding a separate parameter."""
-        ids = await self._matching_ids(query)
+        q = query.lower()
+        ids = await self._candidate_ids(q)
         nanos = await self._fetch(ids)
         school_needle = school.lower()
 
@@ -518,7 +606,8 @@ class NanoStore:
         matches = [
             nano
             for nano in nanos
-            if (not ql or nano.ql == ql)
+            if (not q or q in nano.name_lower)
+            and (not ql or nano.ql == ql)
             and (not school_needle or (nano.school or "").lower() == school_needle)
             and _profession_matches(nano)
         ]
@@ -526,23 +615,23 @@ class NanoStore:
         return matches
 
     async def count(self, query: str, ql: int, school: str, profession: int | None) -> int:
-        if ql or school or profession is not None:
-            return len(await self._filtered_matches(query, ql, school, profession))
-        client = get_redis()
-        lo, hi = _lex_range(query.lower())
-        return await client.zlexcount(self._by_name_key(), lo, hi)
+        if not query and not ql and not school and profession is None:
+            client = get_redis()
+            lo, hi = _lex_range("")
+            return await client.zlexcount(self._by_name_key(), lo, hi)
+        return len(await self._filtered_matches(query, ql, school, profession))
 
     async def search(
         self, query: str, ql: int, school: str, profession: int | None, limit: int, offset: int = 0
     ) -> list[NanoProgram]:
-        if ql or school or profession is not None:
-            return (await self._filtered_matches(query, ql, school, profession))[offset : offset + limit]
+        if not query and not ql and not school and profession is None:
+            client = get_redis()
+            lo, hi = _lex_range("")
+            members = await client.zrangebylex(self._by_name_key(), lo, hi, start=offset, num=limit)
+            ids = [_member_id(m) for m in members]
+            return await self._fetch(ids)
 
-        client = get_redis()
-        lo, hi = _lex_range(query.lower())
-        members = await client.zrangebylex(self._by_name_key(), lo, hi, start=offset, num=limit)
-        ids = [_member_id(m) for m in members]
-        return await self._fetch(ids)
+        return (await self._filtered_matches(query, ql, school, profession))[offset : offset + limit]
 
     async def get(self, aoid: int) -> NanoProgram | None:
         client = get_redis()

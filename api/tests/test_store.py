@@ -1,14 +1,66 @@
 from app.store import ItemStore, make_item
 
 
-async def test_search_matches_prefix_case_insensitively(fake_redis):
+async def test_search_matches_substring_case_insensitively(fake_redis):
     store = ItemStore()
     await store.load([make_item(id=1, name="Notum Tank Armor", ql=200)])
 
     assert len(await store.search(query="notum", ql=0, limit=50)) == 1
     assert len(await store.search(query="NOTUM", ql=0, limit=50)) == 1
-    assert len(await store.search(query="tank", ql=0, limit=50)) == 0  # not a prefix match
+    assert len(await store.search(query="tank", ql=0, limit=50)) == 1  # mid-string, not just a prefix
+    assert len(await store.search(query="Armor", ql=0, limit=50)) == 1  # suffix
     assert len(await store.search(query="nope", ql=0, limit=50)) == 0
+
+
+async def test_search_matches_short_substrings_below_the_trigram_window(fake_redis):
+    store = ItemStore()
+    await store.load([make_item(id=1, name="Notum Tank Armor", ql=200)])
+
+    # Below the 3-char trigram window (see module docstring) - exercises
+    # the full-scan fallback path instead of the trigram index.
+    assert len(await store.search(query="an", ql=0, limit=50)) == 1
+    assert len(await store.search(query="a", ql=0, limit=50)) == 1
+    assert len(await store.search(query="zz", ql=0, limit=50)) == 0
+
+
+async def test_search_blank_query_filters_by_ql_alone(fake_redis):
+    store = ItemStore()
+    await store.load(
+        [
+            make_item(id=1, name="Notum Tank Armor", ql=200),
+            make_item(id=2, name="Notum Splitter", ql=150),
+        ]
+    )
+
+    results = await store.search(query="", ql=200, limit=50)
+    assert [i.id for i in results] == [1]
+
+
+async def test_search_blank_query_filters_by_category_alone(fake_redis):
+    store = ItemStore()
+    await store.load(
+        [
+            make_item(id=1, name="Notum Tank Armor", ql=200, category="armor"),
+            make_item(id=2, name="Notum Splitter", ql=150, category="general"),
+        ]
+    )
+
+    results = await store.search(query="", ql=0, category="armor", limit=50)
+    assert [i.id for i in results] == [1]
+
+
+async def test_search_blank_query_filters_by_category_and_ql(fake_redis):
+    store = ItemStore()
+    await store.load(
+        [
+            make_item(id=1, name="Notum Tank Armor", ql=200, category="armor"),
+            make_item(id=2, name="Notum Chest Armor", ql=150, category="armor"),
+            make_item(id=3, name="Notum Splitter", ql=200, category="general"),
+        ]
+    )
+
+    results = await store.search(query="", ql=200, category="armor", limit=50)
+    assert [i.id for i in results] == [1]
 
 
 async def test_search_filters_by_ql(fake_redis):

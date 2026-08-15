@@ -90,8 +90,12 @@ in-memory copy. On startup, whichever pod acquires a short-lived Redis lock
 does the parse-and-load; the rest just wait for it to finish and then read
 straight from Redis. Readiness is gated on this completing.
 
-Name search (`q=`) is a prefix match against a Redis sorted-set index, not a
-substring match - `q=smg` will not match "Combat SMG".
+Name search (`q=`) is a substring match, not just a prefix - `q=smg` matches
+"Combat SMG". Backed by a Redis trigram index (3-char sliding windows of each
+name, also built in `app/store.py`) that narrows the search down before a
+final in-Python check confirms the actual match and sorts the results; query
+strings under 3 characters can't use that index and fall back to a full scan
+instead (see the module docstring in `app/store.py` for the full design).
 
 Set `REDIS_URL` to point at Redis (default `redis://localhost:6379/0`). The
 Redis instance is assumed dedicated to this app - a fresh load flushes it.

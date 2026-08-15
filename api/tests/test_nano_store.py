@@ -35,13 +35,14 @@ async def _seed(store: NanoStore) -> None:
     )
 
 
-async def test_search_matches_prefix_case_insensitively(fake_redis):
+async def test_search_matches_substring_case_insensitively(fake_redis):
     store = NanoStore()
     await _seed(store)
 
     assert len(await store.search(query="death", ql=0, school="", profession=None, limit=50)) == 1
     assert len(await store.search(query="DEATH", ql=0, school="", profession=None, limit=50)) == 1
-    assert len(await store.search(query="gaze", ql=0, school="", profession=None, limit=50)) == 0
+    assert len(await store.search(query="gaze", ql=0, school="", profession=None, limit=50)) == 1  # suffix match
+    assert len(await store.search(query="xyz", ql=0, school="", profession=None, limit=50)) == 0
 
 
 async def test_search_filters_by_school(fake_redis):
