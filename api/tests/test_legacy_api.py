@@ -1,4 +1,8 @@
+from pathlib import Path
+
 from app.store import make_item, store
+
+_ANALYTICS_PARTIAL = Path(__file__).parent.parent / "app" / "templates" / "_analytics.html"
 
 
 async def _seed():
@@ -93,18 +97,25 @@ async def test_healthz(client):
     assert resp.text == "ok"
 
 
-async def test_docs_includes_cloudflare_analytics_beacon(client):
+async def test_docs_includes_no_analytics_by_default(client):
+    # This repo used to hardcode real tracking IDs here - a stock
+    # deployment (no app/templates/_analytics.html supplied) must ship
+    # with none at all. See test_web.py for the "file present" case.
     resp = client.get("/docs")
 
     assert resp.status_code == 200
-    assert "static.cloudflareinsights.com/beacon.min.js" in resp.text
+    assert "cloudflareinsights.com" not in resp.text
+    assert "googletagmanager.com" not in resp.text
 
 
-async def test_docs_includes_google_analytics_tag(client):
-    resp = client.get("/docs")
-
-    assert resp.status_code == 200
-    assert "googletagmanager.com/gtag/js?id=G-6SJKPHMGR3" in resp.text
+async def test_docs_includes_analytics_partial_when_present(client):
+    assert not _ANALYTICS_PARTIAL.exists()
+    _ANALYTICS_PARTIAL.write_text("<script>window.__test_analytics = true;</script>")
+    try:
+        resp = client.get("/docs")
+        assert "window.__test_analytics = true;" in resp.text
+    finally:
+        _ANALYTICS_PARTIAL.unlink()
 
 
 async def test_api_catalog_describes_this_api(client):

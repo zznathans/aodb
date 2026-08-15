@@ -94,10 +94,18 @@ Redis instance is assumed dedicated to this app - a fresh load flushes it.
 
 ## Analytics
 
-`/browse/*` pages carry Cloudflare Web Analytics and Google Analytics
-beacons (`app/analytics.py`) - client-side, no server involvement. On top
-of that, request-level analytics (method, path, status, response time)
-can optionally be forwarded to [api-analytics](https://github.com/tom-draper/api-analytics)
+Both mechanisms below ship disabled by default - deploying this repo
+as-is sends no analytics anywhere.
+
+`/docs` and every `/browse/*` page will include the raw contents of
+`app/templates/_analytics.html` if that file exists (e.g. a Cloudflare
+Web Analytics beacon, a Google Analytics tag - see
+`app/templates/_analytics.html.example` for the expected shape). That
+file is `.gitignore`d and never committed; supplying one (a custom image
+layer, a mounted secret, etc.) is entirely up to whoever deploys this.
+
+Separately, request-level analytics (method, path, status, response
+time) can optionally be forwarded to [api-analytics](https://github.com/tom-draper/api-analytics)
 by setting `API_ANALYTICS_KEY`; without it, that middleware simply isn't
 registered (see `app/main.py`). Client IPs are never sent
 (`privacy_level=2`).

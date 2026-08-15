@@ -1,21 +1,18 @@
-"""Analytics beacons - not secrets, they're meant to be embedded client-side.
-Centralized here so both the raw-HTML /docs page (main.py, which doesn't go
-through Jinja) and the templated browse UI (base.html, via templating.py's
-Jinja globals) share the exact same snippets rather than risking them
-drifting apart - see the analytics.py history for a past bug where /docs
-had a beacon but the actual /browse/* pages visitors land on didn't.
+"""Optional analytics snippet - never committed to this repo (see
+templates/_analytics.html.example). If app/templates/_analytics.html
+exists, its raw contents get included on /docs and every /browse/* page -
+entirely up to whoever deploys this to supply their own (a Cloudflare Web
+Analytics beacon, a Google Analytics tag, anything else). A deployment
+from this repo as-is ships with no analytics of any kind - this repo used
+to hardcode real tracking IDs here, which meant anyone else deploying it
+unmodified silently sent their own visitors' traffic into the original
+owner's dashboards.
 """
 
-CLOUDFLARE_BEACON = (
-    "<script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' "
-    'data-cf-beacon=\'{"token": "33b5013592484d7eae241203a47df919"}\'></script>'
-)
+from pathlib import Path
 
-GOOGLE_ANALYTICS_TAG = """<script async src="https://www.googletagmanager.com/gtag/js?id=G-6SJKPHMGR3"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+_ANALYTICS_PARTIAL = Path(__file__).parent / "templates" / "_analytics.html"
 
-  gtag('config', 'G-6SJKPHMGR3');
-</script>"""
+
+def analytics_snippet() -> str:
+    return _ANALYTICS_PARTIAL.read_text() if _ANALYTICS_PARTIAL.exists() else ""
