@@ -1,5 +1,5 @@
 """The primary JSON API for item/nano search and lookup, independent of the
-legacy BeBot/AOML contract (GET /legacy) - see legacy.py. Simple query
+legacy AOML contract (GET /legacy) - see legacy.py. Simple query
 params or a JSON body in, structured JSON out, real HTTP status codes."""
 
 from fastapi import APIRouter, HTTPException, Query, Response

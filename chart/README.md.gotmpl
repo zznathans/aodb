@@ -1,11 +1,10 @@
 # aodb chart
 
-Helm chart for [`aodb`](https://github.com/zznathans/aodb)'s API component, a
-self-hosted replacement for the `cidb.bebot.link` item-search API that
-BeBot's `!items` command relies on. Lives at `chart/` in the
-[`zznathans/aodb`](https://github.com/zznathans/aodb) monorepo, alongside the
-API's own source under `api/` - see the [repo README](../README.md) for the
-full picture.
+Helm chart for [`aodb`](https://github.com/zznathans/aodb)'s API component,
+a self-hosted Anarchy Online item/nano database API. Lives at `chart/` in
+the [`zznathans/aodb`](https://github.com/zznathans/aodb) monorepo,
+alongside the API's own source under `api/` - see the
+[repo README](../README.md) for the full picture.
 
 Deploys a FastAPI Deployment + Service. No chart-owned Ingress: the item
 dump is downloaded fresh into memory from a public HTTPS URL

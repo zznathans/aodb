@@ -1,5 +1,5 @@
 """Server-rendered HTML browse/search UI, independent of the JSON API
-(app/api.py) and the legacy BeBot contract (app/legacy.py) - mounted
+(app/api.py) and the legacy AOML contract (app/legacy.py) - mounted
 under /browse specifically so it can never collide with the JSON API's
 own /items and /nanos paths. Reads from the exact same store/nano_store
 singletons app/api.py uses, so results are always consistent between the
