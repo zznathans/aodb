@@ -60,17 +60,29 @@ spec:
             httpGet:
               path: /healthz
               port: 8000
-            # Needs at least as much headroom as readinessProbe above, plus
-            # margin: the app's own startup can block for up to
-            # _LOAD_WAIT_TIMEOUT_SECONDS (120s, app/main.py) waiting on
-            # another pod's Redis dump-load lock before it ever binds the
-            # port - a tighter liveness window than that kills the pod
-            # mid-startup and restarts it into the same wait, which can
-            # crash-loop indefinitely if the lock is slow to clear (e.g. a
-            # Redis restart orphaning a held lock). The previous
-            # initialDelaySeconds=60/periodSeconds=15 (default
-            # failureThreshold=3) only gave 105s, still short of that 120s -
-            # confirmed live in a real crash loop.
+            # Needs enough headroom for the SLOWER of two things a pod can
+            # be doing before it ever binds the port (the whole load runs
+            # inside the lifespan startup hook, ahead of accepting any
+            # connections):
+            #   - waiting on another pod's load lock, capped at
+            #     _LOAD_WAIT_TIMEOUT_SECONDS (120s, app/main.py) before
+            #     giving up and serving what's already in Redis - a
+            #     tighter liveness window than that kills the pod
+            #     mid-wait and restarts it into the same wait, which can
+            #     crash-loop indefinitely if the lock is slow to clear
+            #     (e.g. a Redis restart orphaning a held lock);
+            #   - actually holding the lock and doing the load itself,
+            #     which has no such internal timeout/fallback - confirmed
+            #     live that this can comfortably exceed 135s against the
+            #     bundled Redis (chart/templates/redis.yaml) once the
+            #     name-substring trigram index (app/store.py) is being
+            #     populated: ~3.3M SADD calls for a full 122k-item/10.5k-
+            #     nano dump, measured at ~32s of Redis-side command time
+            #     for the SADD calls alone, on top of every HSET/ZADD.
+            # 285s total below, comfortably under both: the 300s load
+            # lock TTL (so a stuck load's own liveness kill doesn't race a
+            # second pod already re-acquiring the same lock) and the
+            # loading pod's actual observed duration.
             initialDelaySeconds: 60
             periodSeconds: 15
-            failureThreshold: 5
+            failureThreshold: 16

@@ -39,13 +39,18 @@ aodbApi:
       pullPolicy: IfNotPresent
 
     # -- Resource requests and limits for the bundled Redis instance's main container. Keep
-    # the memory limit comfortably above aodbApi.redis.maxmemory above.
+    # the memory limit comfortably above aodbApi.redis.maxmemory above. The CPU limit needs
+    # real burst headroom above the steady-state request - a full item/nano dump load builds
+    # the name-substring trigram index (app/store.py) via ~3.3M SADD calls, measured at ~32s
+    # of Redis-side command time for the SADD calls alone; a limit as tight as the request
+    # throttled that burst badly enough to push the whole load past the app's liveness probe
+    # window (chart/templates/deployment.yaml), confirmed live in a real crash loop.
     resources:
       requests:
         cpu: 101m
         memory: 128Mi
       limits:
-        cpu: 101m
+        cpu: 500m
         memory: 512Mi
 
     exporter:
