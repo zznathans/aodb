@@ -53,12 +53,12 @@ spec:
             # Every boot re-downloads and parses the dump before the app accepts connections
             # (verified against the real ~5.7MB/125k-item dump: ~5-10s including network), so
             # this needs more headroom than a typical stateless app's startup.
-            initialDelaySeconds: 15
-            periodSeconds: 5
-            failureThreshold: 12
+            initialDelaySeconds: 0
+            periodSeconds: 2
+            failureThreshold: 20
           livenessProbe:
             httpGet:
               path: /healthz
               port: 8000
-            initialDelaySeconds: 30
-            periodSeconds: 30
+            initialDelaySeconds: 60
+            periodSeconds: 15
