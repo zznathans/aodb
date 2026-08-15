@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}{% if item %}{{ item.name }}{% else %}Not found{% endif %} - aodb-api{% endblock %}
+{% block content %}
+  <p><a href="/browse/items">&laquo; Back to Items</a></p>
+
+  {% if item %}
+    <h1>{{ item.name }}</h1>
+    <dl>
+      <dt>ID</dt><dd>{{ item.id }}</dd>
+      <dt>QL</dt><dd>{{ item.ql }}</dd>
+      <dt>Icon</dt><dd>{{ item.icon }}</dd>
+      <dt>Description</dt><dd>{{ item.description or "—" }}</dd>
+    </dl>
+  {% else %}
+    <h1>Not found</h1>
+    <p>No item with id {{ aoid }}.</p>
+  {% endif %}
+{% endblock %}

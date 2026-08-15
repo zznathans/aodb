@@ -1,0 +1,11 @@
+.git
+.github
+tests
+scripts
+.pytest_cache
+__pycache__
+*.pyc
+.releaserc.json
+CHANGELOG.md
+README.md
+requirements-dev.txt

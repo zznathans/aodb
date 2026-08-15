@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}aodb-api{% endblock %}</title>
+  <link rel="stylesheet" href="/static/style.css">
+  {{ cloudflare_beacon | safe }}
+  {{ google_analytics_tag | safe }}
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="/browse/">aodb-api</a>
+    <nav>
+      <a href="/browse/">Overview</a>
+      <a href="/browse/items">Items</a>
+      <a href="/browse/nanos">Nanos</a>
+      <a href="/docs">API Docs</a>
+    </nav>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

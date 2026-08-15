@@ -1,0 +1,38 @@
+aodbApi:
+  # -- Public HTTPS URL to the item dump zip (a zipped <aodb><item aoid="..." .../></aodb> XML
+  # file). Downloaded fresh into memory on every pod start - no database, no credentials.
+  dumpUrl: ""
+
+  # -- Connection URL for the Redis instance this app uses to store the loaded item dump and
+  # back its search index (see the app's own README) - e.g. redis://my-redis:6379/0, or
+  # redis://:password@my-redis:6379/0 if auth is enabled. This chart doesn't deploy Redis
+  # itself; point it at whatever instance you've already got running. Assumed dedicated to
+  # this app - a fresh load flushes it.
+  redisUrl: ""
+
+  # -- Number of pod replicas. Safe to run more than one - each replica independently loads its
+  # own in-memory copy of the dump from dumpUrl on startup, no shared state between them.
+  replicaCount: 1
+
+  # -- Container image registry and repository for the aodb-api image.
+  imageRepository: ghcr.io/zznathans/aodb
+  # -- Image tag to deploy.
+  imageTag: "1.4.0"
+  # -- List of image pull secret names to attach to the ServiceAccount. Leave empty if the registry is public.
+  imagePullSecrets: []
+
+  # -- Resource requests and limits for the app container.
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+  service:
+    # -- Port the Service listens on and forwards to the container's 8000.
+    port: 80
+
+  # -- Raw Kubernetes objects to render alongside chart-managed resources.
+  extraObjects: []

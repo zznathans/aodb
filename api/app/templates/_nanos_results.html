@@ -1,0 +1,36 @@
+  <p class="result-count">
+    {% if total %}
+      Showing {{ (page - 1) * page_size + 1 }}&ndash;{{ [(page - 1) * page_size + page_size, total] | min }} of {{ total }}
+    {% else %}
+      No nanos found.
+    {% endif %}
+  </p>
+
+  {% if nanos %}
+    <table class="results">
+      <thead>
+        <tr><th>Name</th><th>QL</th><th>School</th><th>Nanocost</th><th>NCU</th></tr>
+      </thead>
+      <tbody>
+        {% for nano in nanos %}
+        <tr>
+          <td><a href="/browse/nanos/{{ nano.id }}">{{ nano.name }}</a></td>
+          <td>{{ nano.ql }}</td>
+          <td>{{ nano.school or "" }}</td>
+          <td>{{ nano.nanocost if nano.nanocost is not none else "" }}</td>
+          <td>{{ nano.ncu if nano.ncu is not none else "" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  <nav class="pagination">
+    {% if page > 1 %}
+      <a href="/browse/nanos?q={{ q }}&ql={{ ql }}&school={{ school }}&profession={{ profession if profession is not none else '' }}&page={{ page - 1 }}" data-page="{{ page - 1 }}">&laquo; Prev</a>
+    {% endif %}
+    <span>Page {{ page }}</span>
+    {% if has_next %}
+      <a href="/browse/nanos?q={{ q }}&ql={{ ql }}&school={{ school }}&profession={{ profession if profession is not none else '' }}&page={{ page + 1 }}" data-page="{{ page + 1 }}">Next &raquo;</a>
+    {% endif %}
+  </nav>

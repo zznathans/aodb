@@ -1,0 +1,75 @@
+name: Update CHANGELOG
+
+# Appends to api/CHANGELOG.md or chart/CHANGELOG.md depending on which
+# stream's tag fired the release (app-v* / chart-v*) - the two packages
+# version independently (see release.yml), so they keep separate
+# changelogs too.
+on:
+  release:
+    types: [published]
+
+# Least-privilege default; each job below grants itself only what it actually needs.
+permissions: {}
+
+jobs:
+  update-changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Determine which package's changelog to update
+        id: target
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          case "$RELEASE_TAG" in
+            app-v*) echo "path=api/CHANGELOG.md" >> "$GITHUB_OUTPUT" ;;
+            chart-v*) echo "path=chart/CHANGELOG.md" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Unrecognized tag format: $RELEASE_TAG" >&2; exit 1 ;;
+          esac
+
+      - name: Prepend release notes
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_BODY: ${{ github.event.release.body }}
+          RELEASE_DATE: ${{ github.event.release.published_at }}
+          CHANGELOG_PATH: ${{ steps.target.outputs.path }}
+        run: |
+          {
+            echo "## ${RELEASE_TAG} (${RELEASE_DATE%%T*})"
+            echo
+            echo "$RELEASE_BODY"
+            echo
+            if [ -f "$CHANGELOG_PATH" ]; then
+              cat "$CHANGELOG_PATH"
+            fi
+          } > "${CHANGELOG_PATH}.new"
+          mv "${CHANGELOG_PATH}.new" "$CHANGELOG_PATH"
+
+      - name: Open a PR
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          CHANGELOG_PATH: ${{ steps.target.outputs.path }}
+        run: |
+          if git diff --quiet -- "$CHANGELOG_PATH"; then
+            echo "$CHANGELOG_PATH already up to date, nothing to do."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          branch="changelog-${RELEASE_TAG}"
+          git checkout -b "$branch"
+          git add "$CHANGELOG_PATH"
+          git commit -m "docs(changelog): add ${RELEASE_TAG} release notes"
+          git push origin "$branch"
+
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "docs(changelog): add ${RELEASE_TAG} release notes" \
+            --body "Adds the ${RELEASE_TAG} release notes to ${CHANGELOG_PATH}."

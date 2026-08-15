@@ -1,0 +1,9 @@
+---
+apiVersion: v2
+name: aodb-api
+description: Helm chart for aodb-api
+
+type: application
+
+appVersion: 1.2.4
+version: 1.2.4

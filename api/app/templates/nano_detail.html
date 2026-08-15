@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{% if nano %}{{ nano.name }}{% else %}Not found{% endif %} - aodb-api{% endblock %}
+{% block content %}
+  <p><a href="/browse/nanos">&laquo; Back to Nanos</a></p>
+
+  {% if nano %}
+    <h1>{{ nano.name }}</h1>
+    <dl>
+      <dt>ID</dt><dd>{{ nano.id }}</dd>
+      <dt>QL</dt><dd>{{ nano.ql }}</dd>
+      <dt>Icon</dt><dd>{{ nano.icon }}</dd>
+      <dt>Description</dt><dd>{{ nano.description or "—" }}</dd>
+      <dt>School</dt><dd>{{ nano.school or "—" }}</dd>
+      <dt>Strain</dt><dd>{{ nano.strain if nano.strain is not none else "—" }}</dd>
+      <dt>Nanocost</dt><dd>{{ nano.nanocost if nano.nanocost is not none else "—" }}</dd>
+      <dt>NCU</dt><dd>{{ nano.ncu if nano.ncu is not none else "—" }}</dd>
+      <dt>Crystal ID</dt><dd>{{ nano.crystal_id if nano.crystal_id is not none else "—" }}</dd>
+      <dt>Duration</dt><dd>{{ nano.duration if nano.duration is not none else "—" }}</dd>
+      <dt>Profession ID</dt><dd>{{ nano.profession if nano.profession is not none else "—" }}</dd>
+    </dl>
+
+    {% if nano.requirements %}
+      <h2>Requirements</h2>
+      <table class="results">
+        <thead>
+          <tr><th>Attribute</th><th>Operator</th><th>Value</th></tr>
+        </thead>
+        <tbody>
+          {% for req in nano.requirements %}
+          <tr>
+            <td>{{ req.attribute }}</td>
+            <td>{{ req.operator }}</td>
+            <td>{{ req.value }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+  {% else %}
+    <h1>Not found</h1>
+    <p>No nano program with id {{ aoid }}.</p>
+  {% endif %}
+{% endblock %}

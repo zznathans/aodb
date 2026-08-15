@@ -1,0 +1,89 @@
+name: Helm Release
+
+# Packages chart/ and attaches the .tgz to the chart-vX.Y.Z GitHub Release
+# that release.yml's multi-semantic-release run just created, via
+# `cr package`/`cr upload` - deliberately skipping `cr index`, so this repo
+# doesn't publish a browsable Helm chart index/gh-pages site (see the repo
+# README for why - install straight from the release asset instead).
+#
+# chart/Chart.yaml's version/appVersion is updated in this job's own
+# checkout just before packaging (cr package reads it to name the
+# artifact), not on main beforehand - avoids needing a branch-protection-
+# gated PR merge before every chart release. main gets a small non-blocking
+# "sync Chart.yaml" PR afterward, same shape as docker.yml's image-tag-bump
+# PR, purely for repo-state hygiene.
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  package-and-upload:
+    name: Package and upload chart
+    if: startsWith(github.event.release.tag_name, 'chart-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+        with:
+          version: "3.17.0"
+
+      - name: Set Chart.yaml version to match the release tag
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${RELEASE_TAG#chart-v}"
+          sh scripts/bump-chart-version.sh "$version"
+
+      - name: Package chart
+        run: helm package chart -d .cr-release-packages
+
+      - name: Upload package to the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$RELEASE_TAG" .cr-release-packages/*.tgz --repo "${{ github.repository }}"
+
+  sync-chart-yaml:
+    name: Sync Chart.yaml on main
+    needs: package-and-upload
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Bump Chart.yaml and open a PR
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${RELEASE_TAG#chart-v}"
+          sh scripts/bump-chart-version.sh "$version"
+
+          if git diff --quiet -- chart/Chart.yaml; then
+            echo "Chart.yaml already up to date, nothing to do."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          branch="sync-chart-yaml-${RELEASE_TAG}"
+          git checkout -b "$branch"
+          git add chart/Chart.yaml
+          git commit -m "chore(chart): sync Chart.yaml to ${RELEASE_TAG}"
+          git push origin "$branch"
+
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore(chart): sync Chart.yaml to ${RELEASE_TAG}" \
+            --body "Keeps chart/Chart.yaml's version/appVersion in sync with [${RELEASE_TAG}](https://github.com/zznathans/aodb/releases/tag/${RELEASE_TAG})."

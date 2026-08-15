@@ -1,0 +1,6 @@
+{
+  "name": "@aodb/api",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Version bookkeeping manifest for multi-semantic-release - not a real npm package."
+}

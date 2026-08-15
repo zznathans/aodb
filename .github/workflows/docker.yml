@@ -1,0 +1,131 @@
+name: Docker
+
+on:
+  release:
+    types: [published]
+
+# Least-privilege default; each job below grants itself only what it actually needs.
+permissions: {}
+
+jobs:
+  build-and-push:
+    name: Build and Push
+    if: startsWith(github.event.release.tag_name, 'app-v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6
+        with:
+          images: ghcr.io/zznathans/aodb
+          tags: |
+            type=match,pattern=app-v(.*),group=1
+            type=match,pattern=app-v(\d+\.\d+)\.\d+,group=1
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: ./api
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Two separate scans rather than one gating on `format: sarif`: the sarif+exit-code
+      # combination in this trivy-action version was observed to fail the step (nonzero
+      # `outcome`) even when the produced SARIF had zero results (verified via the GitHub
+      # code-scanning API - genuinely empty) and a local `trivy image` run against the exact
+      # same pushed digest, same pinned trivy version, passed clean. Trusting a `continue-on-
+      # error` step's ambiguous `outcome` for the actual gate isn't reliable; a plain
+      # `format: table` scan's own exit code is unambiguous, so let it fail the job directly.
+      - name: Scan image for vulnerabilities (fails the build on CRITICAL/HIGH)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/zznathans/aodb@${{ steps.build.outputs.digest }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+
+      - name: Generate SARIF for the Security tab (informational, non-gating)
+        if: always()
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ghcr.io/zznathans/aodb@${{ steps.build.outputs.digest }}
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "0"
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        with:
+          sarif_file: trivy-results.sarif
+
+  bump-chart-image-tag:
+    name: Bump chart image tag
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - name: Bump chart/values.yaml image tag and open a PR
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="${RELEASE_TAG#app-v}"
+
+          sed -i \
+            -e "s|^  imageRepository:.*|  imageRepository: ghcr.io/zznathans/aodb|" \
+            -e "s|^  imageTag:.*|  imageTag: \"${version}\"|" \
+            chart/values.yaml
+
+          if git diff --quiet -- chart/values.yaml; then
+            echo "Image repository/tag already up to date, nothing to do."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          branch="bump-chart-image-${RELEASE_TAG}"
+          git checkout -b "$branch"
+          git add chart/values.yaml
+          git commit -m "fix(chart): bump image to ${RELEASE_TAG}"
+          git push origin "$branch"
+
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "fix(chart): bump image to ${RELEASE_TAG}" \
+            --body "Bumps the chart's default image tag to [${RELEASE_TAG}](https://github.com/zznathans/aodb/releases/tag/${RELEASE_TAG})."

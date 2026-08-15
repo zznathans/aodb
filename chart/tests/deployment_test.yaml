@@ -1,0 +1,87 @@
+suite: deployment
+templates:
+  - deployment.yaml
+tests:
+  - it: renders a single deployment using the configured image
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.imageRepository: ghcr.io/zznathans/aodb-api
+      aodbApi.imageTag: "1.2.3"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Deployment
+      - equal:
+          path: spec.template.spec.containers[0].image
+          value: ghcr.io/zznathans/aodb-api:1.2.3
+
+  - it: passes dumpUrl through as DUMP_URL
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[0].name
+          value: DUMP_URL
+      - equal:
+          path: spec.template.spec.containers[0].env[0].value
+          value: https://example.invalid/171003.xml.zip
+
+  - it: fails when dumpUrl is not set
+    set:
+      aodbApi.redisUrl: redis://example-redis:6379/0
+    asserts:
+      - failedTemplate:
+          errorMessage: "aodbApi.dumpUrl is required"
+
+  - it: passes redisUrl through as REDIS_URL
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[1].name
+          value: REDIS_URL
+      - equal:
+          path: spec.template.spec.containers[0].env[1].value
+          value: redis://example-redis:6379/0
+
+  - it: fails when redisUrl is not set
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+    asserts:
+      - failedTemplate:
+          errorMessage: "aodbApi.redisUrl is required"
+
+  - it: defaults to a single replica
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 1
+
+  - it: scales up via replicaCount
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.replicaCount: 3
+    asserts:
+      - equal:
+          path: spec.replicas
+          value: 3
+
+  - it: runs as a non-root user with hardened security context
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.containers[0].securityContext.capabilities.drop[0]
+          value: ALL

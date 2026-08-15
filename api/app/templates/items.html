@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Items - aodb-api{% endblock %}
+{% block content %}
+  <h1>Items</h1>
+
+  <form id="search-form" method="get" action="/browse/items" data-kind="items" data-page-size="{{ page_size }}">
+    <label>
+      Name
+      <input type="text" name="q" value="{{ q }}" placeholder="prefix match, e.g. notum" autofocus>
+    </label>
+    <label>
+      QL
+      <input type="number" name="ql" value="{{ ql if ql else '' }}" min="1" placeholder="any">
+    </label>
+    <button type="submit">Search</button>
+  </form>
+
+  <div id="results-container">
+    {% include "_items_results.html" %}
+  </div>
+{% endblock %}
+{% block scripts %}<script src="/static/search.js" defer></script>{% endblock %}

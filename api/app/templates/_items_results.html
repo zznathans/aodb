@@ -1,0 +1,34 @@
+  <p class="result-count">
+    {% if total %}
+      Showing {{ (page - 1) * page_size + 1 }}&ndash;{{ [(page - 1) * page_size + page_size, total] | min }} of {{ total }}
+    {% else %}
+      No items found.
+    {% endif %}
+  </p>
+
+  {% if items %}
+    <table class="results">
+      <thead>
+        <tr><th>Name</th><th>QL</th><th>Description</th></tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td><a href="/browse/items/{{ item.id }}">{{ item.name }}</a></td>
+          <td>{{ item.ql }}</td>
+          <td>{{ item.description or "" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  <nav class="pagination">
+    {% if page > 1 %}
+      <a href="/browse/items?q={{ q }}&ql={{ ql }}&page={{ page - 1 }}" data-page="{{ page - 1 }}">&laquo; Prev</a>
+    {% endif %}
+    <span>Page {{ page }}</span>
+    {% if has_next %}
+      <a href="/browse/items?q={{ q }}&ql={{ ql }}&page={{ page + 1 }}" data-page="{{ page + 1 }}">Next &raquo;</a>
+    {% endif %}
+  </nav>

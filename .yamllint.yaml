@@ -1,0 +1,20 @@
+extends: default
+
+# Helm templates use {{ }} syntax that yamllint cannot parse — exclude them.
+ignore: |
+  templates/
+  .github
+
+rules:
+  line-length:
+    max: 150
+    level: warning
+  truthy:
+    allowed-values: ['true', 'false']
+    check-keys: false
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: disable
+  braces:
+    forbid: false
+  document-start: disable

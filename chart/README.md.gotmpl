@@ -1,0 +1,34 @@
+# aodb chart
+
+Helm chart for [`aodb`](https://github.com/zznathans/aodb)'s API component, a
+self-hosted replacement for the `cidb.bebot.link` item-search API that
+BeBot's `!items` command relies on. Lives at `chart/` in the
+[`zznathans/aodb`](https://github.com/zznathans/aodb) monorepo, alongside the
+API's own source under `api/` - see the [repo README](../README.md) for the
+full picture.
+
+Deploys a FastAPI Deployment + Service. No chart-owned Ingress: the item
+dump is downloaded fresh into memory from a public HTTPS URL
+(`aodbApi.dumpUrl`) on every pod start, and the Service is meant to sit
+behind whatever externally-managed ingress/traffic routing your cluster
+already uses.
+
+The app stores the loaded dump and its search index in Redis
+(`aodbApi.redisUrl`) - this chart doesn't deploy Redis itself, point it at
+whatever instance you've already got running.
+
+{{ template "chart.valuesSection" . }}
+
+## Development
+
+```
+helm lint chart --strict \
+  --set aodbApi.dumpUrl=https://example.invalid/dump.xml.zip \
+  --set aodbApi.redisUrl=redis://example-redis:6379/0
+helm unittest chart
+```
+
+Each `chart-vX.Y.Z` GitHub Release gets the packaged `.tgz` attached as a
+release asset (see `.github/workflows/helm-release.yml`) - install directly
+from that asset (`helm install aodb-api ./aodb-api-X.Y.Z.tgz`) rather than
+via `helm repo add`; this repo doesn't publish a browsable chart index.

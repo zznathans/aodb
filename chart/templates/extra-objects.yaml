@@ -1,0 +1,4 @@
+{{- range .Values.aodbApi.extraObjects }}
+---
+{{ toYaml . }}
+{{- end }}

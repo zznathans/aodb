@@ -1,0 +1,47 @@
+name: Release
+
+# Runs multi-semantic-release once, which independently versions/tags api/
+# and chart/ based on which package directory each commit since that
+# package's last matching tag actually touched - so a chart-only commit
+# never bumps the app's app-vX.Y.Z stream and vice versa. Each package's
+# own api/.releaserc.json / chart/.releaserc.json controls its tagFormat
+# and plugins; neither commits anything back to main (no
+# @semantic-release/git), so branch protection on main is never a concern
+# here - only a git tag + GitHub Release get created via the API, same as
+# each repo did independently before the merge.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    branches: [main]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Multi Semantic Release
+    runs-on: ubuntu-latest
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      !contains(github.event.workflow_run.head_commit.message, '[skip ci]')
+    steps:
+      # RELEASE_PAT: fine-grained PAT scoped to this repo (Contents: write,
+      # Pull requests: write). Needed instead of the default GITHUB_TOKEN
+      # because releases created with the default token don't trigger other
+      # workflows' `release: published` events, which docker.yml and
+      # helm-release.yml depend on.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+          ref: main
+          token: ${{ secrets.RELEASE_PAT }}
+
+      - uses: actions/setup-node@1a4442cacd436585916779262731d5b162bc6ec # v5
+        with:
+          node-version: "22"
+
+      - name: Run multi-semantic-release
+        run: npx --yes multi-semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_PAT }}

@@ -1,0 +1,6 @@
+{
+  "name": "aodb",
+  "private": true,
+  "description": "Monorepo root - version bookkeeping only, drives multi-semantic-release's package discovery. Not a real npm package; api/ is Python, chart/ is a Helm chart.",
+  "workspaces": ["api", "chart"]
+}

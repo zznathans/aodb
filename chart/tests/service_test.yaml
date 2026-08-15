@@ -1,0 +1,18 @@
+suite: service
+templates:
+  - service.yaml
+tests:
+  - it: renders a ClusterIP-style service on the configured port
+    set:
+      aodbApi.service.port: 8080
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isKind:
+          of: Service
+      - equal:
+          path: spec.ports[0].port
+          value: 8080
+      - equal:
+          path: spec.ports[0].targetPort
+          value: 8000

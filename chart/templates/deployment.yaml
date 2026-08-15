@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  replicas: {{ .Values.aodbApi.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      serviceAccount: {{ .Release.Name }}-serviceaccount
+      containers:
+        - name: {{ .Release.Name }}
+          image: {{ .Values.aodbApi.imageRepository }}:{{ .Values.aodbApi.imageTag }}
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DUMP_URL
+              value: {{ required "aodbApi.dumpUrl is required" .Values.aodbApi.dumpUrl | quote }}
+            - name: REDIS_URL
+              value: {{ required "aodbApi.redisUrl is required" .Values.aodbApi.redisUrl | quote }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.aodbApi.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            # Every boot re-downloads and parses the dump before the app accepts connections
+            # (verified against the real ~5.7MB/125k-item dump: ~5-10s including network), so
+            # this needs more headroom than a typical stateless app's startup.
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8000
+            initialDelaySeconds: 30
+            periodSeconds: 30

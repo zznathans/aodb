@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Nanos - aodb-api{% endblock %}
+{% block content %}
+  <h1>Nano Programs</h1>
+
+  <form id="search-form" method="get" action="/browse/nanos" data-kind="nanos" data-page-size="{{ page_size }}">
+    <label>
+      Name
+      <input type="text" name="q" value="{{ q }}" placeholder="prefix match" autofocus>
+    </label>
+    <label>
+      QL
+      <input type="number" name="ql" value="{{ ql if ql else '' }}" min="1" placeholder="any">
+    </label>
+    <label>
+      School
+      <input type="text" name="school" value="{{ school }}" placeholder="exact match, e.g. Combat">
+    </label>
+    <label>
+      Profession ID
+      <input type="number" name="profession" value="{{ profession if profession is not none else '' }}" placeholder="any">
+    </label>
+    <button type="submit">Search</button>
+  </form>
+
+  <div id="results-container">
+    {% include "_nanos_results.html" %}
+  </div>
+{% endblock %}
+{% block scripts %}<script src="/static/search.js" defer></script>{% endblock %}

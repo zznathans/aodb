@@ -1,0 +1,88 @@
+# This workflow uses actions that are not certified by GitHub. They are provided
+# by a third-party and are governed by separate terms of service, privacy
+# policy, and support documentation.
+
+name: Scorecard supply-chain security
+on:
+  # For Branch-Protection check. Only the default branch is supported. See
+  # https://github.com/ossf/scorecard/blob/main/docs/checks.md#branch-protection
+  branch_protection_rule:
+  # To guarantee Maintained check is occasionally updated. See
+  # https://github.com/ossf/scorecard/blob/main/docs/checks.md#maintained
+  schedule:
+    - cron: '33 21 * * 6'
+  push:
+    branches: [ "main" ]
+  # Almost every change can move Scorecard's score (new/changed
+  # dependencies, action pins, Dockerfile, workflow permissions, etc.) --
+  # run on PRs too, not just main pushes/weekly cron. publish_results is
+  # forced off below for PR runs (see the "Run analysis" step): Scorecard
+  # only wants the canonical main-branch analysis published to the public
+  # OpenSSF API, not a PR branch's in-progress state.
+  pull_request:
+    branches: [ "main" ]
+
+# Declare default permissions as read only.
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    # `publish_results: true` only works when run from the default branch. conditional can be removed if disabled.
+    if: github.event.repository.default_branch == github.ref_name || github.event_name == 'pull_request'
+    permissions:
+      # Needed to publish results and get a badge (see publish_results below).
+      id-token: write
+      # Uncomment the permissions below if installing in a private repository.
+      # contents: read
+      # actions: read
+
+    steps:
+      - name: "Checkout code"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: "Run analysis"
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # (Optional) "write" PAT token. Uncomment the `repo_token` line below if:
+          # - you want to enable the Branch-Protection check on a *public* repository, or
+          # - you are installing Scorecard on a *private* repository
+          # To create the PAT, follow the steps in https://github.com/ossf/scorecard-action?tab=readme-ov-file#authentication-with-fine-grained-pat-optional.
+          # repo_token: ${{ secrets.SCORECARD_TOKEN }}
+
+          # Public repositories:
+          #   - Publish results to OpenSSF REST API for easy access by consumers
+          #   - Allows the repository to include the Scorecard badge.
+          #   - See https://github.com/ossf/scorecard-action#publishing-results.
+          # For private repositories:
+          #   - `publish_results` will always be set to `false`, regardless
+          #     of the value entered here.
+          # Only publish for the canonical main-branch analysis (push/
+          # schedule/branch_protection_rule) -- not for pull_request runs.
+          publish_results: ${{ github.event_name != 'pull_request' }}
+
+          # (Optional) Uncomment file_mode if you have a .gitattributes with files marked export-ignore
+          # file_mode: git
+
+      # Upload the results as artifacts. This workflow deliberately does
+      # NOT also upload straight to the code-scanning dashboard here (as
+      # GitHub's own starter template suggests) -- github/codeql-action is
+      # a monorepo, and referencing its upload-sarif subdirectory action
+      # anywhere in *this* workflow file makes publish_results' own
+      # Sigstore/rekor-based workflow-verification reject the run as an
+      # "imposter commit", regardless of which real release commit it's
+      # pinned to. The actual upload happens from scorecard-upload.yml
+      # instead, a separate workflow file that downloads this artifact
+      # after the fact -- keeping codeql-action out of the file
+      # publish_results verifies is what lets both coexist.
+      - name: "Upload artifact"
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: SARIF file
+          path: results.sarif
+          retention-days: 5
