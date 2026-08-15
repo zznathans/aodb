@@ -19,7 +19,15 @@ async def _seed():
                 profession=5,
                 requirements=(),
             ),
-            make_nano(id=25982, name="Change Form: Opifex", ql=-1, school="Healing", profession=None),
+            make_nano(
+                id=25982,
+                name="Change Form: Opifex",
+                ql=1,
+                description="The caster changes shape to outwardly resemble an Opifex.",
+                school="Healing",
+                crystal_id=26139,
+                profession=None,
+            ),
         ]
     )
 
@@ -27,7 +35,7 @@ async def _seed():
 async def test_search_returns_nano_specific_fields(client):
     await _seed()
 
-    resp = client.get("/nanos", params={"q": "death"})
+    resp = client.get("/api/nanos", params={"q": "death"})
 
     assert resp.status_code == 200
     body = resp.json()
@@ -46,7 +54,7 @@ async def test_search_returns_nano_specific_fields(client):
 async def test_search_filters_by_school(client):
     await _seed()
 
-    resp = client.get("/nanos", params={"school": "Healing"})
+    resp = client.get("/api/nanos", params={"school": "Healing"})
 
     body = resp.json()
     assert len(body) == 1
@@ -56,7 +64,7 @@ async def test_search_filters_by_school(client):
 async def test_search_filters_by_profession(client):
     await _seed()
 
-    resp = client.get("/nanos", params={"profession": 5})
+    resp = client.get("/api/nanos", params={"profession": 5})
 
     body = resp.json()
     assert len(body) == 1
@@ -66,7 +74,7 @@ async def test_search_filters_by_profession(client):
 async def test_search_sets_total_count_header(client):
     await _seed()
 
-    resp = client.get("/nanos", params={"limit": 1})
+    resp = client.get("/api/nanos", params={"limit": 1})
 
     assert resp.headers["X-Total-Count"] == "2"
     assert len(resp.json()) == 1
@@ -75,7 +83,7 @@ async def test_search_sets_total_count_header(client):
 async def test_post_search_matches_get_behavior(client):
     await _seed()
 
-    resp = client.post("/nanos", json={"school": "Combat"})
+    resp = client.post("/api/nanos", json={"school": "Combat"})
 
     assert resp.status_code == 200
     body = resp.json()
@@ -86,7 +94,7 @@ async def test_post_search_matches_get_behavior(client):
 async def test_get_by_id_returns_nano(client):
     await _seed()
 
-    resp = client.get("/nanos/25980")
+    resp = client.get("/api/nanos/25980")
 
     assert resp.status_code == 200
     assert resp.json()["name"] == "Death's Gaze"
@@ -95,7 +103,7 @@ async def test_get_by_id_returns_nano(client):
 async def test_get_by_id_404s_for_unknown_id(client):
     await _seed()
 
-    resp = client.get("/nanos/999999")
+    resp = client.get("/api/nanos/999999")
 
     assert resp.status_code == 404
     assert "999999" in resp.json()["detail"]
@@ -104,7 +112,7 @@ async def test_get_by_id_404s_for_unknown_id(client):
 async def test_items_endpoints_unaffected_by_nano_data(client):
     await _seed()
 
-    resp = client.get("/items", params={"q": "gaze"})
+    resp = client.get("/api/items", params={"q": "gaze"})
 
     assert resp.status_code == 200
     assert resp.json() == []
