@@ -1,9 +1,8 @@
-"""Renders search results as AOML (Anarchy Online chat markup) text, matching
-the raw-body contract the old cidb.bebot.link service returned and that
-BeBot's Items.php passes straight through to chat with zero parsing.
+"""Renders search results as AOML (Anarchy Online chat markup) text - the
+raw-body format legacy game-chat clients pass straight through to chat
+with zero parsing.
 
-Item-row markup mirrors the exact template already used elsewhere in BeBot
-for item links (Modules/Ao/Market.php):
+Item-row markup:
     <img src=rdb://ICON> <a href='itemref://ID/ID/QL'>NAME</a> QLQL
 """
 

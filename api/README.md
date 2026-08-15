@@ -1,10 +1,9 @@
 # aodb api
 
-Self-hosted replacement for the third-party "Central Item Database"
-(`cidb.bebot.link`) that BeBot's `!items` command relies on, which has been
-suffering Cloudflare 522 (origin timeout) outages. Implements the same
-query-string contract and returns the same raw AOML text BeBot expects, so
-it's a drop-in replacement via BeBot's `Items.CIDB` setting.
+A self-hosted Anarchy Online item/nano database API: parses the official
+item dump and serves it back out as a JSON API, plus a legacy
+AOML-compatible endpoint returning raw chat-markup text for game-chat
+clients that expect that format.
 
 See the [repo README](https://github.com/zznathans/aodb#readme) for how
 this fits together with the [Helm chart](https://github.com/zznathans/aodb/tree/main/chart)
@@ -44,7 +43,7 @@ already know to look for `/openapi.json` specifically.
 ### Primary API (plain JSON)
 
 A normal JSON API for item/nano data - real HTTP status codes, no
-BeBot-specific quirks.
+legacy-endpoint quirks.
 
 - `GET /items?q=<name>&ql=<ql>&limit=50&offset=0` or the equivalent
   `POST /items` with the same fields as a JSON body - both return a bare
@@ -68,14 +67,16 @@ BeBot-specific quirks.
   `OnlineController::getProfessionId()`, itself derived from Anarchy
   Online's own client data.
 
-### Legacy (BeBot / AOML)
+### Legacy (AOML)
 
-`GET /legacy?bot=BeBot&output=aoml&max=50&search=<name>&ql=<ql>&icons=true&color_header=<hex>&color_highlight=<hex>&color_normal=<hex>`
+`GET /legacy?output=aoml&max=50&search=<name>&ql=<ql>&icons=true&color_header=<hex>&color_highlight=<hex>&color_normal=<hex>`
 
-Only `output=aoml` is implemented (the only value BeBot ever sends). Always
-returns HTTP 200 with a body (including "no results"), since BeBot's client
-does no status-code checking and shows the raw response verbatim in chat.
-Point BeBot's `Items.CIDB` setting at this path.
+Returns raw AOML (Anarchy Online chat markup) text instead of JSON, for
+game-chat clients that expect that format and pass it straight through to
+chat with zero parsing. Only `output=aoml` is implemented; any other value
+returns HTTP 400. Otherwise always returns HTTP 200 with a body (including
+"no results"), since these clients typically don't check the status code
+and show the raw response verbatim in chat.
 
 ## Data
 
