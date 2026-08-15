@@ -1,10 +1,19 @@
 import io
 import zipfile
 from unittest.mock import MagicMock, patch
+from xml.etree import ElementTree as ET
 
 import pytest
 
-from app.dump_loader import _int_or_none, import_from_url, parse_dump_xml, parse_dump_zip
+from app.dump_loader import (
+    _armor_implant_subcategory,
+    _int_or_none,
+    _utility_subcategory,
+    _weapon_subcategory,
+    import_from_url,
+    parse_dump_xml,
+    parse_dump_zip,
+)
 
 XML_TEXT = """<?xml version="1.0"?>
 <aodb>
@@ -116,6 +125,139 @@ def test_int_or_none_handles_missing_and_invalid_values():
     assert _int_or_none(None) is None
     assert _int_or_none("not-a-number") is None
     assert _int_or_none("42") == 42
+
+
+def test_armor_implant_subcategory_handles_missing_and_empty_slots():
+    assert _armor_implant_subcategory(None) == ""
+    assert _armor_implant_subcategory("") == ""
+    assert _armor_implant_subcategory("  ,  ") == ""
+
+
+def test_armor_implant_subcategory_strips_left_right_prefix_and_capitalizes():
+    assert _armor_implant_subcategory("Right Wrist, Left Wrist") == "Wrist"
+
+
+def test_armor_implant_subcategory_ambiguous_bases_fall_back_to_other():
+    assert _armor_implant_subcategory("Right Wrist, Head") == "Other"
+
+
+def test_armor_implant_subcategory_many_slots_is_social_full_body():
+    ten_slots = ", ".join(f"Slot{i}" for i in range(10))
+    assert _armor_implant_subcategory(ten_slots) == "Social/Full Body"
+
+
+def test_utility_subcategory_handles_missing_and_empty_slots():
+    assert _utility_subcategory(None) == ""
+    assert _utility_subcategory("") == ""
+
+
+def test_utility_subcategory_strips_numbered_instance_suffix():
+    assert _utility_subcategory("Utils 1, Utils 2, Utils 3") == "Utils"
+
+
+def test_utility_subcategory_mixed_families_is_multi_slot():
+    assert _utility_subcategory("Utils 1, Hud 2") == "Multi-Slot"
+
+
+def test_utility_subcategory_only_separators_is_empty():
+    assert _utility_subcategory("  ,  ") == ""
+
+
+def test_weapon_subcategory_attack_skillmap_with_no_skills_returns_empty():
+    root = ET.Element("item")
+    ET.SubElement(root, "skillmap", type="attack")
+    assert _weapon_subcategory(root) == ""
+
+
+def _skillmap_elem(kind: str, skills: dict[str, float]) -> ET.Element:
+    root = ET.Element("item")
+    skillmap_el = ET.SubElement(root, "skillmap", type=kind)
+    for name, percentage in skills.items():
+        ET.SubElement(skillmap_el, "skill", name=name, percentage=str(percentage))
+    return root
+
+
+def test_weapon_subcategory_picks_highest_percentage_attack_skill():
+    elem = _skillmap_elem("attack", {"Pistol": 40.0, "Rifle": 60.0})
+    assert _weapon_subcategory(elem) == "Rifle"
+
+
+def test_weapon_subcategory_ignores_non_attack_skillmaps():
+    root = ET.Element("item")
+    ET.SubElement(root, "skillmap", type="defense")
+    assert _weapon_subcategory(root) == ""
+
+
+def test_weapon_subcategory_no_skillmap_returns_empty():
+    assert _weapon_subcategory(ET.Element("item")) == ""
+
+
+_SUBCATEGORY_XML = """<?xml version="1.0"?>
+<aodb>
+  <item aoid="1" patch="1" metatype="w">
+    <name>Test Rifle</name>
+    <ql>100</ql>
+    <icon>1</icon>
+    <damage minimum="10" maximum="20" critical="30" type="1" />
+    <skillmap type="attack">
+      <skill name="Pistol" percentage="30" />
+      <skill name="Rifle" percentage="70" />
+    </skillmap>
+    <effects>
+      <effect hook="Wear" target="Self" action="Modify" attribute="Strength" value="5" />
+    </effects>
+  </item>
+  <item aoid="2" patch="1" metatype="i">
+    <type>2</type>
+    <name>Test Armor</name>
+    <ql>100</ql>
+    <icon>1</icon>
+    <slots>Right Wrist, Left Wrist</slots>
+  </item>
+  <item aoid="3" patch="1" metatype="i">
+    <type>1</type>
+    <name>Test Utility</name>
+    <ql>100</ql>
+    <icon>1</icon>
+    <slots>Utils 1, Utils 2</slots>
+  </item>
+  <item aoid="4" patch="1" metatype="i">
+    <type>4</type>
+    <name>NPC-only Junk Weapon</name>
+    <ql>1</ql>
+    <icon>1</icon>
+  </item>
+</aodb>
+"""
+
+
+def test_parse_dump_xml_derives_weapon_category_and_subcategory_and_damage():
+    items, _nanos = parse_dump_xml(io.BytesIO(_SUBCATEGORY_XML.encode("utf-8")))
+
+    rifle = next(i for i in items if i.id == 1)
+    assert rifle.category == "weapon"
+    assert rifle.subcategory == "Rifle"
+    assert (rifle.damage_min, rifle.damage_max, rifle.damage_critical) == (10, 20, 30)
+    assert rifle.effects[0].attribute == "Strength"
+
+
+def test_parse_dump_xml_derives_armor_and_utility_subcategory():
+    items, _nanos = parse_dump_xml(io.BytesIO(_SUBCATEGORY_XML.encode("utf-8")))
+
+    armor = next(i for i in items if i.id == 2)
+    assert armor.category == "armor"
+    assert armor.subcategory == "Wrist"
+
+    utility = next(i for i in items if i.id == 3)
+    assert utility.category == "utility"
+    assert utility.subcategory == "Utils"
+
+
+def test_parse_dump_xml_drops_type_4_npc_only_items():
+    items, _nanos = parse_dump_xml(io.BytesIO(_SUBCATEGORY_XML.encode("utf-8")))
+
+    assert all(i.id != 4 for i in items)
+    assert len(items) == 3
 
 
 def test_import_from_url_downloads_and_parses():

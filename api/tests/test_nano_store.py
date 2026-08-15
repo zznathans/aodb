@@ -1,4 +1,4 @@
-from app.store import NanoStore, Requirement, _requirements_from_json, make_nano
+from app.store import Effect, NanoStore, Requirement, _effects_from_json, _requirements_from_json, make_nano
 
 
 async def _seed(store: NanoStore) -> None:
@@ -119,4 +119,16 @@ def test_requirements_from_json_round_trips_real_requirements():
     raw = '[{"hook": "To Use", "attribute": "Profession", "operator": "exactly", "value": "5"}]'
     assert _requirements_from_json(raw) == (
         Requirement(hook="To Use", attribute="Profession", operator="exactly", value="5"),
+    )
+
+
+def test_effects_from_json_handles_missing_field():
+    assert _effects_from_json(None) == ()
+    assert _effects_from_json("") == ()
+
+
+def test_effects_from_json_round_trips_real_effects():
+    raw = '[{"hook": "Wear", "target": "Self", "action": "Modify", "attribute": "Strength", "value": "10"}]'
+    assert _effects_from_json(raw) == (
+        Effect(hook="Wear", target="Self", action="Modify", attribute="Strength", value="10"),
     )
