@@ -12,29 +12,41 @@ name: Helm Release
 # gated PR merge before every chart release. main gets a small non-blocking
 # "sync Chart.yaml" PR afterward, same shape as docker.yml's image-tag-bump
 # PR, purely for repo-state hygiene.
+#
+# Triggered via workflow_dispatch from release.yml (not `release: published`
+# - GITHUB_TOKEN-created releases don't fire that event, see release.yml's
+# comment) with the just-created tag as an input. `release: published` is
+# also kept as a trigger so a manually-published/edited release still works.
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "The chart-vX.Y.Z release tag to package"
+        required: true
 
 permissions: {}
 
 jobs:
   package-and-upload:
     name: Package and upload chart
-    if: startsWith(github.event.release.tag_name, 'chart-v')
+    if: startsWith(github.event.inputs.tag || github.event.release.tag_name, 'chart-v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
         with:
           version: "3.17.0"
 
       - name: Set Chart.yaml version to match the release tag
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
           version="${RELEASE_TAG#chart-v}"
           sh scripts/bump-chart-version.sh "$version"
@@ -45,7 +57,6 @@ jobs:
       - name: Upload package to the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: gh release upload "$RELEASE_TAG" .cr-release-packages/*.tgz --repo "${{ github.repository }}"
 
   sync-chart-yaml:
@@ -55,15 +66,17 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    env:
+      RELEASE_TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          token: ${{ secrets.RELEASE_PAT }}
 
+      # Opened with GITHUB_TOKEN, not a PAT - see docker.yml's
+      # bump-chart-image-tag job for why (same tradeoff: no auto CI run on
+      # this PR, needs a manual re-run/approval before merging).
       - name: Bump Chart.yaml and open a PR
         env:
-          GH_TOKEN: ${{ secrets.RELEASE_PAT }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           version="${RELEASE_TAG#chart-v}"
           sh scripts/bump-chart-version.sh "$version"
