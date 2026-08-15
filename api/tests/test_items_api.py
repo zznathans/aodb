@@ -56,6 +56,22 @@ async def test_get_search_ql_filter(client):
     assert body[0]["name"] == "Notum Tank Armor"
 
 
+async def test_get_search_category_and_ql_filter_combined(client):
+    await store.load(
+        [
+            make_item(id=1, name="Notum Tank Armor", ql=200, category="armor"),
+            make_item(id=2, name="Notum Tank Armor", ql=150, category="armor"),
+            make_item(id=3, name="Notum Tank Armor", ql=200, category="general"),
+        ]
+    )
+
+    resp = client.get("/api/items", params={"q": "notum", "category": "armor", "ql": 200})
+
+    body = resp.json()
+    assert len(body) == 1
+    assert body[0]["id"] == 1
+
+
 async def test_get_search_offset(client):
     await _seed()
 
