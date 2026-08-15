@@ -26,7 +26,7 @@ deploying it.
 
 ## Highlights
 
-- **Primary JSON API** for items and nano programs - prefix search,
+- **Primary JSON API** for items and nano programs - substring search,
   quality-level/school/profession filters, pagination, real HTTP status
   codes.
 - **Legacy AOML endpoint** - raw chat-markup responses for game-chat

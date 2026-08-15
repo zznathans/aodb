@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from app.store import Effect, Requirement, make_item, make_nano, nano_store, store
+from app.web import _merge_ql_variants
 
 _ANALYTICS_PARTIAL = Path(__file__).parent.parent / "app" / "templates" / "_analytics.html"
 
@@ -207,22 +208,22 @@ async def test_browse_items_by_category_filters_by_query(client):
     assert "Notum Splitter" not in resp.text
 
 
-async def test_browse_items_merges_uses_the_lowest_ql_variants_id(client):
-    # Same-name group encountered in descending-ish ql order: the merged
-    # row's link should follow whichever variant actually has the lowest
-    # ql, not just the first one seen.
-    await store.load(
-        [
-            make_item(id=5, name="Notum Tank Armor", ql=200, description="Sturdy.", category="armor"),
-            make_item(id=6, name="Notum Tank Armor", ql=100, description="Sturdy.", category="armor"),
-        ]
-    )
+def test_merge_ql_variants_uses_the_lowest_ql_variants_id():
+    # Same-name group encountered in descending-ish ql order (search()
+    # doesn't guarantee any particular order among substring-matched
+    # candidates before its own final name sort) - the merged row's link
+    # should follow whichever variant actually has the lowest ql, not just
+    # the first one seen.
+    items = [
+        make_item(id=5, name="Notum Tank Armor", ql=200, description="Sturdy."),
+        make_item(id=6, name="Notum Tank Armor", ql=100, description="Sturdy."),
+    ]
 
-    resp = client.get("/items", params={"q": "notum"})
+    merged = _merge_ql_variants(items)
 
-    assert resp.status_code == 200
-    assert "100–200" in resp.text
-    assert 'href="/items/6"' in resp.text
+    assert len(merged) == 1
+    assert merged[0]["id"] == 6
+    assert merged[0]["ql_display"] == "100–200"
 
 
 async def test_browse_items_by_category_404s_for_unknown_category(client):
