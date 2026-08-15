@@ -2,7 +2,9 @@ import io
 import zipfile
 from unittest.mock import MagicMock, patch
 
-from app.dump_loader import import_from_url, parse_dump_xml, parse_dump_zip
+import pytest
+
+from app.dump_loader import _int_or_none, import_from_url, parse_dump_xml, parse_dump_zip
 
 XML_TEXT = """<?xml version="1.0"?>
 <aodb>
@@ -99,6 +101,21 @@ def test_parse_dump_zip_extracts_and_parses():
     items, nanos = parse_dump_zip(_zip_bytes(XML_TEXT, "171003.xml"))
     assert len(items) == 4
     assert len(nanos) == 2
+
+
+def test_parse_dump_zip_raises_when_no_xml_member():
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as zf:
+        zf.writestr("readme.txt", "not an xml file")
+
+    with pytest.raises(ValueError, match="No .xml member found"):
+        parse_dump_zip(buf.getvalue())
+
+
+def test_int_or_none_handles_missing_and_invalid_values():
+    assert _int_or_none(None) is None
+    assert _int_or_none("not-a-number") is None
+    assert _int_or_none("42") == 42
 
 
 def test_import_from_url_downloads_and_parses():

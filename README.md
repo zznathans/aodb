@@ -7,39 +7,71 @@
 
 Self-hosted replacement for the third-party "Central Item Database"
 (`cidb.bebot.link`) that BeBot's `!items` command relies on, which has been
-suffering Cloudflare 522 (origin timeout) outages. Implements the same
-query-string contract and returns the same raw AOML text BeBot expects, so
-it's a drop-in replacement via BeBot's `Items.CIDB` setting.
+suffering Cloudflare 522 (origin timeout) outages. A FastAPI service that
+parses the official Anarchy Online item dump into Redis and serves it back
+out as a JSON API, a legacy AOML-compatible endpoint (a drop-in for BeBot's
+`Items.CIDB` setting, same query-string contract, same raw chat-markup
+response), and a plain server-rendered browse/search UI - no build step,
+works with JavaScript disabled. Ships with a Helm chart for deploying it.
 
-This repo holds both halves of the project:
+## What's here
 
-- [`api/`](api/README.md) - the FastAPI application (JSON API, legacy AOML
-  endpoint, and a server-rendered browse/search UI).
-- [`chart/`](chart/README.md.gotmpl) - the Helm chart that deploys it.
+- [`api/`](api/README.md) - the FastAPI application: JSON API, legacy AOML
+  endpoint, browse UI, sitemap, and everything else that runs at request
+  time. See its README for the full endpoint reference, data model, and
+  local development instructions.
+- [`chart/`](chart/README.md.gotmpl) - the Helm chart that deploys it to
+  Kubernetes. See its README (values reference, generated via helm-docs)
+  for every configurable setting.
+- [`scripts/`](scripts/bump-chart-version.sh) - small shell helpers used
+  by the release workflows below, not meant to be run by hand.
 
-They used to be two separate repos (`aodb-api` and `aodb-api-helm`), merged
-here so a single PR can change the app and its chart together instead of
-coordinating across repos.
+## Highlights
+
+- **Primary JSON API** for items and nano programs - prefix search,
+  quality-level/school/profession filters, pagination, real HTTP status
+  codes.
+- **Legacy AOML endpoint** for BeBot, matching the old CIDB service's
+  exact contract.
+- **Browse UI** (`/browse/`) - a stats landing page (item/nano counts,
+  nanos-by-school breakdown) plus searchable items/nanos pages with detail
+  views, entirely server-rendered.
+- **Search-engine discovery** - `/robots.txt` and a chunked `/sitemap.xml`
+  covering the full catalog.
+- **Redis-backed storage** shared across every pod, loaded once behind a
+  distributed lock so a multi-pod rollout doesn't stampede the source dump
+  on startup.
+- **Hardened container image** - digest-pinned base image, unused OS
+  packages stripped, every Python dependency hash-verified at install
+  time.
+- **Optional analytics** - Cloudflare/Google Analytics beacons on the
+  browse UI, and an opt-in [api-analytics](https://github.com/tom-draper/api-analytics)
+  middleware for request-level metrics (never enabled unless an API key is
+  configured; client IPs are never sent).
 
 ## Releases
 
 The app and chart version independently, since a change to one rarely
 implies a change to the other:
 
-- App releases are tagged `app@X.Y.Z` and publish a container image to
-  `ghcr.io/zznathans/aodb`.
+- App releases are tagged `app@X.Y.Z` and publish a multi-arch (amd64 +
+  arm64) container image to `ghcr.io/zznathans/aodb`.
 - Chart releases are tagged `chart@X.Y.Z`, attach the packaged `.tgz` as a
   release asset, and push it as an OCI artifact to
   `oci://ghcr.io/zznathans/aodb/charts` (`helm install aodb
   oci://ghcr.io/zznathans/aodb/charts/aodb --version X.Y.Z`) - same
   registry/namespace as the app image, no `helm repo add` needed.
 
-`gh-pages` is reserved for the app's README doc site only (synced on every
-app release) - it doesn't host the chart.
-
 An app release automatically opens a PR bumping the chart's default image
 tag (`chart/values.yaml`) to match, so the chart stays deployable with the
 latest image without a chart release being required just for that.
 
-See `api/README.md` for the app's own docs (API endpoints, local dev,
-data model) and `chart/README.md.gotmpl` for the chart's values reference.
+`gh-pages` hosts the app's README as a browsable doc site (synced on every
+app release) - it doesn't host the chart.
+
+## Development
+
+See [`api/README.md`](api/README.md#local-development) for running the app
+locally, and [`chart/README.md.gotmpl`](chart/README.md.gotmpl#development)
+for linting/testing the chart. CI runs both independently and only when the
+relevant half of the repo actually changed.
