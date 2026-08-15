@@ -28,6 +28,13 @@ from .web import router as web_router
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
 
+# api_analytics (see the Analytics middleware below) hardcodes its own
+# logger to DEBUG internally (api_analytics/core.py), ignoring the root
+# level set above entirely - it logs every single request's full payload
+# at DEBUG, which is noise in production. Only takes effect when
+# API_ANALYTICS_KEY is actually set; harmless no-op otherwise.
+logging.getLogger("api_analytics").setLevel(logging.WARNING)
+
 # Redis is shared by every pod, so only one pod needs to actually parse the
 # dump and write it - the rest just wait for that to finish and then read
 # the same data straight out of Redis. "Version" is just the source
