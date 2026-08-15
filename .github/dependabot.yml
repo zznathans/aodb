@@ -27,6 +27,3 @@ updates:
       github-actions:
         patterns:
           - "*"
-    labels:
-      - dependencies
-      - ci
