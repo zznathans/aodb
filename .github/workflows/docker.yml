@@ -115,22 +115,29 @@ jobs:
     name: Bump chart image tag
     needs: build-and-push
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
+    permissions: {}
     env:
       RELEASE_TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # Minted from the aodb-release-bot GitHub App (APP_ID/APP_PRIVATE_KEY)
+      # rather than GITHUB_TOKEN: App installation tokens aren't subject to
+      # GitHub's anti-recursion rule, so the PR this job opens gets a normal
+      # CI run - a GITHUB_TOKEN-opened PR wouldn't, and would sit blocked on
+      # required status checks until someone manually nudged it.
+      - name: Generate a token for the release bot
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      # Opened with GITHUB_TOKEN, not a PAT - the tradeoff is this PR won't
-      # auto-trigger CI (GitHub's anti-recursion rule again, see
-      # release.yml), so it needs a manual re-run/approval before merging.
-      # Preferred over holding a broadly-scoped PAT as a repo secret just
-      # for this.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
       - name: Bump chart/values.yaml image tag and open a PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           version="${RELEASE_TAG#app@}"
 

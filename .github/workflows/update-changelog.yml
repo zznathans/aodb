@@ -24,13 +24,24 @@ permissions: {}
 jobs:
   update-changelog:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
+    permissions: {}
     env:
       RELEASE_TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
     steps:
+      # Minted from the aodb-release-bot GitHub App - see docker.yml's
+      # bump-chart-image-tag job for why (App tokens aren't subject to
+      # GitHub's anti-recursion rule, so the PR this job opens gets a
+      # normal CI run).
+      - name: Generate a token for the release bot
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Determine which package's changelog to update
         id: target
@@ -46,7 +57,7 @@ jobs:
       # not workflow_dispatch (the normal path here, see the on: block).
       - name: Prepend release notes
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           CHANGELOG_PATH: ${{ steps.target.outputs.path }}
         run: |
           release_date=$(gh release view "$RELEASE_TAG" --json publishedAt --jq .publishedAt)
@@ -62,12 +73,9 @@ jobs:
           } > "${CHANGELOG_PATH}.new"
           mv "${CHANGELOG_PATH}.new" "$CHANGELOG_PATH"
 
-      # Opened with GITHUB_TOKEN, not a PAT - see docker.yml's
-      # bump-chart-image-tag job for why (same tradeoff: no auto CI run on
-      # this PR, needs a manual re-run/approval before merging).
       - name: Open a PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
           CHANGELOG_PATH: ${{ steps.target.outputs.path }}
         run: |
           if git diff --quiet -- "$CHANGELOG_PATH"; then
