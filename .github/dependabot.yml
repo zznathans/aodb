@@ -1,12 +1,12 @@
 version: 2
 updates:
   - package-ecosystem: pip
-    directory: "/api"
+    directory: "/"
     schedule:
       interval: weekly
 
   - package-ecosystem: docker
-    directory: "/api"
+    directory: "/"
     schedule:
       interval: weekly
 
