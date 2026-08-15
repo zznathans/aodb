@@ -1,6 +1,7 @@
 # aodb
 
 [![CI](https://github.com/zznathans/aodb/actions/workflows/ci.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/ci.yml)
+[![Coverage Status](https://coveralls.io/repos/github/zznathans/aodb/badge.svg?branch=main)](https://coveralls.io/github/zznathans/aodb?branch=main)
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/zznathans/aodb/badge)](https://scorecard.dev/viewer/?uri=github.com/zznathans/aodb)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 

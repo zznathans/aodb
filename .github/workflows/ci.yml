@@ -56,6 +56,11 @@ jobs:
     needs: changes
     if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
+    # pull-requests: write is for the Coveralls step below (it posts a PR
+    # comment with the coverage diff) - everything else in this job needs
+    # no elevated permissions.
+    permissions:
+      pull-requests: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -63,8 +68,18 @@ jobs:
           python-version: "3.12"
       - run: pip install --require-hashes -r requirements-dev.txt
         working-directory: api
-      - run: pytest
+      - run: pytest --cov=app --cov-report=lcov:coverage.lcov
         working-directory: api
+
+      # Informational only (see the repo README for why) - not a required
+      # status check, so a coverage regression never blocks merging.
+      # Doesn't need a repo token: defaults to github-token: github.token
+      # and auto-creates the repo on Coveralls on first post.
+      - name: Coveralls
+        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2.3.8
+        with:
+          file: api/coverage.lcov
+          base-path: api
 
   yamllint:
     name: Yamllint (chart)
