@@ -5,14 +5,12 @@
 [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/zznathans/aodb/badge)](https://scorecard.dev/viewer/?uri=github.com/zznathans/aodb)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
-Self-hosted replacement for the third-party "Central Item Database"
-(`cidb.bebot.link`) that BeBot's `!items` command relies on, which has been
-suffering Cloudflare 522 (origin timeout) outages. A FastAPI service that
-parses the official Anarchy Online item dump into Redis and serves it back
-out as a JSON API, a legacy AOML-compatible endpoint (a drop-in for BeBot's
-`Items.CIDB` setting, same query-string contract, same raw chat-markup
-response), and a plain server-rendered browse/search UI - no build step,
-works with JavaScript disabled. Ships with a Helm chart for deploying it.
+A FastAPI service that parses the official Anarchy Online item dump into
+Redis and serves it back out as a JSON API, a legacy AOML-compatible
+endpoint (raw chat-markup responses for game-chat clients that expect
+that format), and a plain server-rendered browse/search UI - no build
+step, works with JavaScript disabled. Ships with a Helm chart for
+deploying it.
 
 ## What's here
 
@@ -31,8 +29,8 @@ works with JavaScript disabled. Ships with a Helm chart for deploying it.
 - **Primary JSON API** for items and nano programs - prefix search,
   quality-level/school/profession filters, pagination, real HTTP status
   codes.
-- **Legacy AOML endpoint** for BeBot, matching the old CIDB service's
-  exact contract.
+- **Legacy AOML endpoint** - raw chat-markup responses for game-chat
+  clients that expect that format, rather than JSON.
 - **Browse UI** (`/browse/`) - a stats landing page (item/nano counts,
   nanos-by-school breakdown) plus searchable items/nanos pages with detail
   views, entirely server-rendered.
@@ -44,9 +42,10 @@ works with JavaScript disabled. Ships with a Helm chart for deploying it.
 - **Hardened container image** - digest-pinned base image, unused OS
   packages stripped, every Python dependency hash-verified at install
   time.
-- **Optional analytics** - Cloudflare/Google Analytics beacons on the
-  browse UI, and an opt-in [api-analytics](https://github.com/tom-draper/api-analytics)
-  middleware for request-level metrics (never enabled unless an API key is
+- **Optional analytics** - an opt-in client-side snippet on the browse UI
+  and `/docs` (nothing ships by default), and an opt-in
+  [api-analytics](https://github.com/tom-draper/api-analytics) middleware
+  for request-level metrics (never enabled unless an API key is
   configured; client IPs are never sent).
 
 ## Releases
