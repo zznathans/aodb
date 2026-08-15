@@ -1,6 +1,6 @@
 name: Helm Release
 
-# Packages chart/ and attaches the .tgz to the chart-vX.Y.Z GitHub Release
+# Packages chart/ and attaches the .tgz to the chart@X.Y.Z GitHub Release
 # that release.yml's multi-semantic-release run just created, then publishes
 # it to a Helm chart index at gh-pages:charts/ (served at
 # https://aodb.ao.yeetbox.net/charts/, alongside the app's README doc site
@@ -24,7 +24,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "The chart-vX.Y.Z release tag to package"
+        description: "The chart@X.Y.Z release tag to package"
         required: true
 
 permissions: {}
@@ -32,7 +32,7 @@ permissions: {}
 jobs:
   package-and-upload:
     name: Package and upload chart
-    if: startsWith(github.event.inputs.tag || github.event.release.tag_name, 'chart-v')
+    if: startsWith(github.event.inputs.tag || github.event.release.tag_name, 'chart@')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -49,7 +49,7 @@ jobs:
 
       - name: Set Chart.yaml version to match the release tag
         run: |
-          version="${RELEASE_TAG#chart-v}"
+          version="${RELEASE_TAG#chart@}"
           sh scripts/bump-chart-version.sh "$version"
 
       - name: Package chart
@@ -126,7 +126,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          version="${RELEASE_TAG#chart-v}"
+          version="${RELEASE_TAG#chart@}"
           sh scripts/bump-chart-version.sh "$version"
 
           if git diff --quiet -- chart/Chart.yaml; then

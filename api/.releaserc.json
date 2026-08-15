@@ -1,5 +1,4 @@
 {
-  "tagFormat": "app-v${version}",
   "branches": ["main"],
   "plugins": [
     "@semantic-release/commit-analyzer",
