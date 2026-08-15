@@ -26,7 +26,13 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
       - uses: snok/container-retention-policy@d3bdcf5ce9b05f685154e4a16c39233b245e3d53 # v3.1.0
         with:
-          account: zznathans
+          # Literally "user", not the username - that's how this action
+          # distinguishes personal accounts (different API endpoints) from
+          # orgs, where `account:` would be the org name. zznathans/aodb
+          # is a personal account, so this must be "user" (using the
+          # literal username here calls the org-scoped API against a
+          # personal account and fails to parse the response).
+          account: user
           token: ${{ steps.generate-token.outputs.token }}
           image-names: "aodb"
           cut-off: 3m
