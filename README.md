@@ -25,9 +25,9 @@ coordinating across repos.
 The app and chart version independently, since a change to one rarely
 implies a change to the other:
 
-- App releases are tagged `app-vX.Y.Z` and publish a container image to
+- App releases are tagged `app@X.Y.Z` and publish a container image to
   `ghcr.io/zznathans/aodb`.
-- Chart releases are tagged `chart-vX.Y.Z`, attach the packaged `.tgz` as a
+- Chart releases are tagged `chart@X.Y.Z`, attach the packaged `.tgz` as a
   release asset, and publish to a Helm chart index at
   https://aodb.ao.yeetbox.net/charts/ (`helm repo add aodb
   https://aodb.ao.yeetbox.net/charts`).

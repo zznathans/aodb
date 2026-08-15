@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "The app-vX.Y.Z release tag to build/push"
+        description: "The app@X.Y.Z release tag to build/push"
         required: true
 
 # Least-privilege default; each job below grants itself only what it actually needs.
@@ -20,7 +20,7 @@ permissions: {}
 jobs:
   build-and-push:
     name: Build and Push
-    if: startsWith(github.event.inputs.tag || github.event.release.tag_name, 'app-v')
+    if: startsWith(github.event.inputs.tag || github.event.release.tag_name, 'app@')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -44,7 +44,7 @@ jobs:
       - name: Compute image tags from the release tag
         id: version
         run: |
-          version="${RELEASE_TAG#app-v}"
+          version="${RELEASE_TAG#app@}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "major_minor=${version%.*}" >> "$GITHUB_OUTPUT"
 
@@ -132,7 +132,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          version="${RELEASE_TAG#app-v}"
+          version="${RELEASE_TAG#app@}"
 
           sed -i \
             -e "s|^  imageRepository:.*|  imageRepository: ghcr.io/zznathans/aodb|" \

@@ -1,7 +1,7 @@
 name: Update CHANGELOG
 
 # Appends to api/CHANGELOG.md or chart/CHANGELOG.md depending on which
-# stream's tag fired the release (app-v* / chart-v*) - the two packages
+# stream's tag fired the release (app@* / chart@*) - the two packages
 # version independently (see release.yml), so they keep separate
 # changelogs too.
 #
@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "The app-vX.Y.Z or chart-vX.Y.Z release tag"
+        description: "The app@X.Y.Z or chart@X.Y.Z release tag"
         required: true
 
 # Least-privilege default; each job below grants itself only what it actually needs.
@@ -36,8 +36,8 @@ jobs:
         id: target
         run: |
           case "$RELEASE_TAG" in
-            app-v*) echo "path=api/CHANGELOG.md" >> "$GITHUB_OUTPUT" ;;
-            chart-v*) echo "path=chart/CHANGELOG.md" >> "$GITHUB_OUTPUT" ;;
+            app@*) echo "path=api/CHANGELOG.md" >> "$GITHUB_OUTPUT" ;;
+            chart@*) echo "path=chart/CHANGELOG.md" >> "$GITHUB_OUTPUT" ;;
             *) echo "Unrecognized tag format: $RELEASE_TAG" >&2; exit 1 ;;
           esac
 

@@ -3,11 +3,15 @@ name: Release
 # Runs multi-semantic-release once, which independently versions/tags api/
 # and chart/ based on which package directory each commit since that
 # package's last matching tag actually touched - so a chart-only commit
-# never bumps the app's app-vX.Y.Z stream and vice versa. Each package's
-# own api/.releaserc.json / chart/.releaserc.json controls its tagFormat
-# and plugins; neither commits anything back to main (no
-# @semantic-release/git), so branch protection on main is never a concern
-# here - only a git tag + GitHub Release get created via the API.
+# never bumps the app's app@X.Y.Z stream and vice versa. Each package's
+# own api/.releaserc.json / chart/.releaserc.json controls plugins; MSR
+# always tags as ${package.json name}@${version} and silently ignores any
+# tagFormat override (a documented MSR limitation, not configurable) -
+# hence api/package.json and chart/package.json are named plain "app" and
+# "chart" specifically to produce app@X.Y.Z / chart@X.Y.Z tags. Neither
+# commits anything back to main (no @semantic-release/git), so branch
+# protection on main is never a concern here - only a git tag + GitHub
+# Release get created via the API.
 #
 # Uses the default GITHUB_TOKEN, not a PAT: GITHUB_TOKEN has everything
 # needed to create tags/releases given contents:write below. The catch is
@@ -68,12 +72,12 @@ jobs:
           for tag in $new_tags; do
             echo "New tag: $tag"
             case "$tag" in
-              app-v*)
+              app@*)
                 gh workflow run docker.yml -f tag="$tag"
                 gh workflow run pages.yml -f tag="$tag"
                 gh workflow run update-changelog.yml -f tag="$tag"
                 ;;
-              chart-v*)
+              chart@*)
                 gh workflow run helm-release.yml -f tag="$tag"
                 gh workflow run update-changelog.yml -f tag="$tag"
                 ;;

@@ -6,7 +6,7 @@ name: Sync READMEs to gh-pages
 # client-side (marked.js), so the site works without depending on any
 # GitHub Pages Jekyll plugin behavior. Mirrors BeBot's pages.yml pattern.
 #
-# Only fires for app-vX.Y.Z releases (chart-only releases don't touch the
+# Only fires for app@X.Y.Z releases (chart-only releases don't touch the
 # app's docs) and only syncs api/README.md (+ anything it links to), not
 # chart/README.md - the chart's docs live in the release asset / repo
 # browser instead, see helm-release.yml.
@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "The app-vX.Y.Z release tag that triggered this sync"
+        description: "The app@X.Y.Z release tag that triggered this sync"
         required: true
 
 # Least-privilege default; each job below grants itself only what it actually needs.
@@ -30,7 +30,7 @@ permissions: {}
 jobs:
   sync-readmes:
     runs-on: ubuntu-latest
-    if: startsWith(github.event.inputs.tag || github.event.release.tag_name, 'app-v')
+    if: startsWith(github.event.inputs.tag || github.event.release.tag_name, 'app@')
     permissions:
       contents: write
     steps:
