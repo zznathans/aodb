@@ -10,7 +10,7 @@ data:
     maxmemory-policy {{ .Values.aodbApi.redis.maxmemoryPolicy }}
 ---
 apiVersion: redis.redis.opstreelabs.in/v1beta2
-kind: RedisReplication
+kind: Redis
 metadata:
   name: {{ include "aodb.redisName" . }}
   namespace: {{ .Release.Namespace }}
