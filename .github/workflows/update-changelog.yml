@@ -92,8 +92,9 @@ jobs:
           git commit -m "docs(changelog): add ${RELEASE_TAG} release notes"
           git push origin "$branch"
 
-          gh pr create \
+          pr_url=$(gh pr create \
             --base main \
             --head "$branch" \
             --title "docs(changelog): add ${RELEASE_TAG} release notes" \
-            --body "Adds the ${RELEASE_TAG} release notes to ${CHANGELOG_PATH}."
+            --body "Adds the ${RELEASE_TAG} release notes to ${CHANGELOG_PATH}.")
+          gh pr merge --auto --merge "$pr_url"

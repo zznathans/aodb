@@ -133,8 +133,9 @@ jobs:
           git commit -m "chore(chart): sync Chart.yaml to ${RELEASE_TAG}"
           git push origin "$branch"
 
-          gh pr create \
+          pr_url=$(gh pr create \
             --base main \
             --head "$branch" \
             --title "chore(chart): sync Chart.yaml to ${RELEASE_TAG}" \
-            --body "Keeps chart/Chart.yaml's version/appVersion in sync with [${RELEASE_TAG}](https://github.com/zznathans/aodb/releases/tag/${RELEASE_TAG})."
+            --body "Keeps chart/Chart.yaml's version/appVersion in sync with [${RELEASE_TAG}](https://github.com/zznathans/aodb/releases/tag/${RELEASE_TAG}).")
+          gh pr merge --auto --merge "$pr_url"
