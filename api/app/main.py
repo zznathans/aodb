@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from api_analytics.fastapi import Analytics, Config
 from fastapi import FastAPI, Request
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
 from .analytics import analytics_snippet
@@ -105,7 +105,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="aodb-api", lifespan=lifespan, docs_url=None)
+app = FastAPI(title="aodb", lifespan=lifespan, docs_url=None, openapi_url="/api/openapi.json")
 
 # api-analytics (https://github.com/tom-draper/api-analytics) - optional,
 # opt-in request analytics forwarded to a third-party dashboard. Only
@@ -118,22 +118,17 @@ else:
     logger.warning("API_ANALYTICS_KEY not set - request analytics middleware disabled")
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
-app.include_router(api_router)
-app.include_router(legacy_router)
-app.include_router(professions_router)
+app.include_router(api_router, prefix="/api")
+app.include_router(legacy_router, prefix="/api")
+app.include_router(professions_router, prefix="/api")
 app.include_router(web_router)
 app.include_router(sitemap_router)
 
 
-@app.get("/docs", include_in_schema=False)
+@app.get("/api/docs", include_in_schema=False)
 def docs() -> HTMLResponse:
     html = get_swagger_ui_html(openapi_url=app.openapi_url, title=f"{app.title} - Swagger UI").body.decode()
     return HTMLResponse(html.replace("</head>", f"{analytics_snippet()}</head>"))
-
-
-@app.get("/", include_in_schema=False)
-def homepage():
-    return RedirectResponse(url="/browse/")
 
 
 @app.get("/healthz", response_class=PlainTextResponse, include_in_schema=False)
@@ -150,10 +145,13 @@ def robots(request: Request):
 # RFC 9727 (https://www.rfc-editor.org/rfc/rfc9727) - a standard well-known
 # location advertising this API's machine-readable description, so a
 # generic API-discovery client doesn't need to already know about
-# /openapi.json specifically. One linkset entry describing this single API;
-# "anchor" is this API's own canonical base URL, derived from the request
-# rather than hardcoded so it's correct regardless of what host/scheme it's
-# actually reached through (custom domain, port-forward, etc.).
+# /api/openapi.json specifically. This URI's own location is fixed by the
+# RFC (always at the site root, regardless of where the API itself lives)
+# - only the hrefs inside point into /api. One linkset entry describing
+# this single API; "anchor" is this API's own canonical base URL, derived
+# from the request rather than hardcoded so it's correct regardless of
+# what host/scheme it's actually reached through (custom domain,
+# port-forward, etc.).
 @app.get("/.well-known/api-catalog", include_in_schema=False)
 def api_catalog(request: Request) -> JSONResponse:
     base = str(request.base_url).rstrip("/")
@@ -161,8 +159,8 @@ def api_catalog(request: Request) -> JSONResponse:
         "linkset": [
             {
                 "anchor": base,
-                "service-desc": [{"href": f"{base}/openapi.json", "type": "application/vnd.oas.openapi+json"}],
-                "service-doc": [{"href": f"{base}/docs", "type": "text/html"}],
+                "service-desc": [{"href": f"{base}/api/openapi.json", "type": "application/vnd.oas.openapi+json"}],
+                "service-doc": [{"href": f"{base}/api/docs", "type": "text/html"}],
             }
         ]
     }

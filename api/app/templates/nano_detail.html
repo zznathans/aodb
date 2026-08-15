@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}{% if nano %}{{ nano.name }}{% else %}Not found{% endif %} - aodb-api{% endblock %}
+{% block title %}{% if nano %}{{ nano.name }}{% else %}Not found{% endif %} - aodb{% endblock %}
 {% block content %}
-  <p><a href="/browse/nanos">&laquo; Back to Nanos</a></p>
+  <p><a href="/nanos">&laquo; Back to Nanos</a></p>
 
   {% if nano %}
-    <h1>{{ nano.name }}</h1>
+    <h1>{{ nano.name }} {% include "_api_links.html" %}</h1>
     <dl>
       <dt>ID</dt><dd>{{ nano.id }}</dd>
       <dt>QL</dt><dd>{{ nano.ql }}</dd>
@@ -16,7 +16,7 @@
       <dt>NCU</dt><dd>{{ nano.ncu if nano.ncu is not none else "—" }}</dd>
       <dt>Crystal ID</dt><dd>{{ nano.crystal_id if nano.crystal_id is not none else "—" }}</dd>
       <dt>Duration</dt><dd>{{ nano.duration if nano.duration is not none else "—" }}</dd>
-      <dt>Profession ID</dt><dd>{{ nano.profession if nano.profession is not none else "—" }}</dd>
+      <dt>Profession</dt><dd><a href="/nanos/professions/{{ nano.profession | profession_slug }}">{{ nano.profession | profession_name }}</a></dd>
     </dl>
 
     {% if nano.requirements %}
@@ -30,7 +30,31 @@
           <tr>
             <td>{{ req.attribute }}</td>
             <td>{{ req.operator }}</td>
-            <td>{{ req.value }}</td>
+            {% if req.attribute in ("Profession", "Visual profession") %}
+              <td><a href="/nanos/professions/{{ req.value | int | profession_slug }}">{{ req.value | int | profession_name }}</a></td>
+            {% else %}
+              <td>{{ req.value }}</td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+
+    {% if nano.effects %}
+      <h2>Effects</h2>
+      <table class="results">
+        <thead>
+          <tr><th>Hook</th><th>Target</th><th>Action</th><th>Attribute</th><th>Value</th></tr>
+        </thead>
+        <tbody>
+          {% for eff in nano.effects %}
+          <tr>
+            <td>{{ eff.hook }}</td>
+            <td>{{ eff.target }}</td>
+            <td>{{ eff.action }}</td>
+            <td>{{ eff.attribute or "" }}</td>
+            <td>{{ eff.value or "" }}</td>
           </tr>
           {% endfor %}
         </tbody>

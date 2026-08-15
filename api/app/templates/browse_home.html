@@ -1,34 +1,17 @@
 {% extends "base.html" %}
-{% block title %}aodb-api{% endblock %}
+{% block title %}aodb{% endblock %}
 {% block content %}
-  <h1>aodb-api</h1>
+  <h1>aodb</h1>
   <p class="tagline">Anarchy Online item &amp; nano program database.</p>
 
   <div class="stat-grid">
-    <a class="stat-card" href="/browse/items">
+    <a class="stat-card" href="/items">
       <span class="stat-number">{{ item_total }}</span>
       <span class="stat-label">Items</span>
     </a>
-    <a class="stat-card" href="/browse/nanos">
+    <a class="stat-card" href="/nanos">
       <span class="stat-number">{{ nano_total }}</span>
       <span class="stat-label">Nano Programs</span>
     </a>
   </div>
-
-  <h2>Nanos by School</h2>
-  {% if schools %}
-    <table class="results">
-      <thead><tr><th>School</th><th>Nanos</th></tr></thead>
-      <tbody>
-        {% for school, count in schools %}
-        <tr>
-          <td><a href="/browse/nanos?school={{ school }}">{{ school }}</a></td>
-          <td>{{ count }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  {% else %}
-    <p>No nano data loaded.</p>
-  {% endif %}
 {% endblock %}

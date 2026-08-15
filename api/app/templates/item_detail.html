@@ -1,16 +1,79 @@
 {% extends "base.html" %}
-{% block title %}{% if item %}{{ item.name }}{% else %}Not found{% endif %} - aodb-api{% endblock %}
+{% block title %}{% if item %}{{ item.name }}{% else %}Not found{% endif %} - aodb{% endblock %}
 {% block content %}
-  <p><a href="/browse/items">&laquo; Back to Items</a></p>
+  <p><a href="/items">&laquo; Back to Items</a></p>
 
   {% if item %}
-    <h1>{{ item.name }}</h1>
+    <h1>{{ item.name }} {% include "_api_links.html" %}</h1>
     <dl>
       <dt>ID</dt><dd>{{ item.id }}</dd>
-      <dt>QL</dt><dd>{{ item.ql }}</dd>
+      <dt>QL</dt>
+      <dd>
+        {% if has_ql_range %}
+          <form method="get" action="" class="ql-form">
+            <input type="number" name="ql" value="{{ display.ql }}" min="{{ ql_min }}" max="{{ ql_max }}">
+            <button type="submit">QL</button>
+          </form>
+          <span class="tile-stat">range {{ ql_min }}&ndash;{{ ql_max }}</span>
+        {% else %}
+          {{ item.ql }}
+        {% endif %}
+      </dd>
       <dt>Icon</dt><dd>{{ item.icon }}</dd>
+      <dt>Category</dt><dd><a href="/items/categories/{{ item.category }}">{{ category_name }}</a></dd>
+      {% if item.subcategory %}
+        <dt>Type</dt><dd>{{ item.subcategory }}</dd>
+      {% endif %}
+      {% set dmg_min = display.damage_min if display else item.damage_min %}
+      {% set dmg_max = display.damage_max if display else item.damage_max %}
+      {% set dmg_crit = display.damage_critical if display else item.damage_critical %}
+      {% if dmg_min is not none %}
+        <dt>Damage</dt>
+        <dd>{{ dmg_min }}&ndash;{{ dmg_max }}{% if dmg_crit %} (crit {{ dmg_crit }}){% endif %}</dd>
+      {% endif %}
       <dt>Description</dt><dd>{{ item.description or "—" }}</dd>
     </dl>
+
+    {% set stats = display.stats if display else (item.effects | selectattr("action", "equalto", "Modify") | list) %}
+    {% if stats %}
+      <h2>Stats{% if has_ql_range %} at QL {{ display.ql }}{% endif %}</h2>
+      <table class="results">
+        <thead>
+          <tr><th>Attribute</th><th>Value</th></tr>
+        </thead>
+        <tbody>
+          {% for stat in stats %}
+          <tr>
+            <td>{{ stat.attribute or "" }}</td>
+            <td>{{ stat.value or "" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
+
+    {% set equip_reqs = display.requirements if display else (item.requirements | selectattr("hook", "equalto", "To Equip") | list) %}
+    {% if equip_reqs %}
+      <h2>Requirements{% if has_ql_range %} at QL {{ display.ql }}{% endif %}</h2>
+      <table class="results">
+        <thead>
+          <tr><th>Attribute</th><th>Operator</th><th>Value</th></tr>
+        </thead>
+        <tbody>
+          {% for req in equip_reqs %}
+          <tr>
+            <td>{{ req.attribute }}</td>
+            <td>{{ req.operator }}</td>
+            {% if req.attribute in ("Profession", "Visual profession") %}
+              <td><a href="/nanos/professions/{{ req.value | int | profession_slug }}">{{ req.value | int | profession_name }}</a></td>
+            {% else %}
+              <td>{{ req.value }}</td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% endif %}
   {% else %}
     <h1>Not found</h1>
     <p>No item with id {{ aoid }}.</p>

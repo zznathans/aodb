@@ -1,22 +1,59 @@
 {% extends "base.html" %}
-{% block title %}Items - aodb-api{% endblock %}
+{% block title %}
+  {%- if subcategory -%}
+    {{ category_name }}: {{ subcategory }} - aodb
+  {%- elif category_name -%}
+    {{ category_name }} - aodb
+  {%- else -%}
+    Items - aodb
+  {%- endif -%}
+{% endblock %}
 {% block content %}
-  <h1>Items</h1>
+  <h1>
+    {%- if subcategory -%}
+      {{ category_name }}: {{ subcategory }}
+    {%- elif category_name -%}
+      {{ category_name }}
+    {%- else -%}
+      Items
+    {%- endif %} {% include "_api_links.html" %}
+  </h1>
 
-  <form id="search-form" method="get" action="/browse/items" data-kind="items" data-page-size="{{ page_size }}">
+  {% if not has_query %}
+    <div class="tile-grid">
+      {% if subcategories is not none %}
+        {% for sub in subcategories %}
+        <a class="tile" href="/items/categories/{{ category }}/types/{{ sub.slug }}">
+          <span class="tile-name">{{ sub.name }}</span>
+          <span class="tile-stat">{{ sub.item_count }} item{{ "s" if sub.item_count != 1 }}</span>
+        </a>
+        {% endfor %}
+      {% else %}
+        {% for cat in categories %}
+        <a class="tile" href="/items/categories/{{ cat.id }}">
+          <span class="tile-name">{{ cat.name }}</span>
+          <span class="tile-stat">{{ cat.item_count }} item{{ "s" if cat.item_count != 1 }}</span>
+        </a>
+        {% endfor %}
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <form id="search-form" method="get" action="" data-kind="items" data-page-size="{{ page_size }}" data-category="{{ category }}" data-subcategory="{{ subcategory }}">
     <label>
       Name
       <input type="text" name="q" value="{{ q }}" placeholder="prefix match, e.g. notum" autofocus>
     </label>
-    <label>
-      QL
-      <input type="number" name="ql" value="{{ ql if ql else '' }}" min="1" placeholder="any">
-    </label>
     <button type="submit">Search</button>
   </form>
 
-  <div id="results-container">
-    {% include "_items_results.html" %}
-  </div>
+  {% if has_query %}
+    {% if subcategory %}
+      <p><a href="/items/categories/{{ category }}">&laquo; Back to types</a></p>
+    {% endif %}
+    <div id="results-container">
+      {% include "_items_results.html" %}
+    </div>
+  {% endif %}
 {% endblock %}
 {% block scripts %}<script src="/static/search.js" defer></script>{% endblock %}

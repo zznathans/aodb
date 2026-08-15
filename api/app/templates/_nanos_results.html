@@ -9,12 +9,18 @@
   {% if nanos %}
     <table class="results">
       <thead>
-        <tr><th>Name</th><th>QL</th><th>School</th><th>Nanocost</th><th>NCU</th></tr>
+        <tr>
+          <th data-sort-type="text">Name</th>
+          <th class="col-ql" data-sort-type="number">QL</th>
+          <th data-sort-type="text">School</th>
+          <th data-sort-type="number">Nanocost</th>
+          <th data-sort-type="number">NCU</th>
+        </tr>
       </thead>
       <tbody>
         {% for nano in nanos %}
         <tr>
-          <td><a href="/browse/nanos/{{ nano.id }}">{{ nano.name }}</a></td>
+          <td><a href="/nanos/{{ nano.id }}">{{ nano.name }}</a></td>
           <td>{{ nano.ql }}</td>
           <td>{{ nano.school or "" }}</td>
           <td>{{ nano.nanocost if nano.nanocost is not none else "" }}</td>
@@ -27,10 +33,10 @@
 
   <nav class="pagination">
     {% if page > 1 %}
-      <a href="/browse/nanos?q={{ q }}&ql={{ ql }}&school={{ school }}&profession={{ profession if profession is not none else '' }}&page={{ page - 1 }}" data-page="{{ page - 1 }}">&laquo; Prev</a>
+      <a href="{{ request.url.path }}?q={{ q }}&page={{ page - 1 }}" data-page="{{ page - 1 }}">&laquo; Prev</a>
     {% endif %}
     <span>Page {{ page }}</span>
     {% if has_next %}
-      <a href="/browse/nanos?q={{ q }}&ql={{ ql }}&school={{ school }}&profession={{ profession if profession is not none else '' }}&page={{ page + 1 }}" data-page="{{ page + 1 }}">Next &raquo;</a>
+      <a href="{{ request.url.path }}?q={{ q }}&page={{ page + 1 }}" data-page="{{ page + 1 }}">Next &raquo;</a>
     {% endif %}
   </nav>

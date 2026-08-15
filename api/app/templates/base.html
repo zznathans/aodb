@@ -3,23 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}aodb-api{% endblock %}</title>
+  <title>{% block title %}aodb{% endblock %}</title>
   <link rel="stylesheet" href="/static/style.css">
   {% include "_analytics.html" ignore missing %}
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="/browse/">aodb-api</a>
+    <a class="brand" href="/">aodb</a>
     <nav>
-      <a href="/browse/">Overview</a>
-      <a href="/browse/items">Items</a>
-      <a href="/browse/nanos">Nanos</a>
-      <a href="/docs">API Docs</a>
+      <a href="/">Overview</a>
+      <a href="/items">Items</a>
+      <a href="/nanos">Nanos</a>
+      <a href="/api/docs">API Docs</a>
     </nav>
   </header>
   <main>
     {% block content %}{% endblock %}
   </main>
+  <script src="/static/sortable-table.js" defer></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>
