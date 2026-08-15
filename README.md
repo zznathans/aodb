@@ -61,8 +61,8 @@ implies a change to the other:
   `oci://ghcr.io/zznathans/aodb/charts` (`helm install aodb
   oci://ghcr.io/zznathans/aodb/charts/aodb --version X.Y.Z`, no `helm repo
   add` needed - the recommended path) and to a classic Helm chart index at
-  https://aodb.ao.yeetbox.net/charts/ (`helm repo add aodb
-  https://aodb.ao.yeetbox.net/charts`), kept around for third-party tooling
+  https://zznathans.github.io/aodb/charts/ (`helm repo add aodb
+  https://zznathans.github.io/aodb/charts`), kept around for third-party tooling
   that doesn't speak OCI registries yet.
 
 An app release automatically opens a PR bumping the chart's default image

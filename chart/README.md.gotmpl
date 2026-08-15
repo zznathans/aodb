@@ -46,10 +46,10 @@ helm install aodb oci://ghcr.io/zznathans/aodb/charts/aodb --version X.Y.Z
 ```
 
 And, for third-party tooling that doesn't speak OCI registries yet, to a
-classic Helm chart index at https://aodb.ao.yeetbox.net/charts/:
+classic Helm chart index at https://zznathans.github.io/aodb/charts/:
 
 ```
-helm repo add aodb https://aodb.ao.yeetbox.net/charts
+helm repo add aodb https://zznathans.github.io/aodb/charts
 helm repo update
 helm install aodb aodb/aodb --version X.Y.Z
 ```

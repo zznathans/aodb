@@ -6,9 +6,10 @@ name: Helm Release
 # `helm repo add` needed, the primary/recommended path) and, for backwards
 # compatibility with third-party tooling that doesn't speak OCI registries
 # yet, to a classic Helm chart index at gh-pages:charts/ (served at
-# https://aodb.ao.yeetbox.net/charts/, alongside the app's README doc site
-# published by pages.yml on the same branch/domain, different path) so
-# `helm repo add` still works too.
+# https://zznathans.github.io/aodb/charts/ - GitHub Pages' default domain,
+# no custom domain is configured for this repo - alongside the app's
+# README doc site published by pages.yml on the same branch/domain,
+# different path) so `helm repo add` still works too.
 #
 # chart/Chart.yaml's version/appVersion is updated in this job's own
 # checkout just before packaging (cr package reads it to name the
@@ -85,7 +86,7 @@ jobs:
         run: |
           mkdir -p gh-pages/charts
           cp .cr-release-packages/*.tgz gh-pages/charts/
-          helm repo index gh-pages/charts --url https://aodb.ao.yeetbox.net/charts --merge gh-pages/charts/index.yaml
+          helm repo index gh-pages/charts --url https://zznathans.github.io/aodb/charts --merge gh-pages/charts/index.yaml
 
       - name: Commit and push the index
         working-directory: gh-pages
