@@ -1,12 +1,20 @@
 version: 2
 updates:
+  # api/requirements.txt / api/requirements-dev.txt - the app's own deps.
+  - package-ecosystem: pip
+    directory: "/api"
+    schedule:
+      interval: weekly
+
+  # requirements-ci.txt at repo root - CI-only tooling (yamllint) that
+  # isn't an api/ dependency.
   - package-ecosystem: pip
     directory: "/"
     schedule:
       interval: weekly
 
   - package-ecosystem: docker
-    directory: "/"
+    directory: "/api"
     schedule:
       interval: weekly
 
