@@ -2,5 +2,5 @@
 pytest==9.1.1
 pytest-asyncio==1.4.0
 httpx==0.28.1
-ruff==0.16.1
-fakeredis==2.26.2
+ruff==0.16.2
+fakeredis==2.37.0
