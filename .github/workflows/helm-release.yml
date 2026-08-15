@@ -94,20 +94,27 @@ jobs:
     name: Sync Chart.yaml on main
     needs: package-and-publish
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
+    permissions: {}
     env:
       RELEASE_TAG: ${{ github.event.inputs.tag || github.event.release.tag_name }}
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # Minted from the aodb-release-bot GitHub App - see docker.yml's
+      # bump-chart-image-tag job for why (App tokens aren't subject to
+      # GitHub's anti-recursion rule, so this PR gets a normal CI run).
+      - name: Generate a token for the release bot
+        id: app-token
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
-      # Opened with GITHUB_TOKEN, not a PAT - see docker.yml's
-      # bump-chart-image-tag job for why (same tradeoff: no auto CI run on
-      # this PR, needs a manual re-run/approval before merging).
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+
       - name: Bump Chart.yaml and open a PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           version="${RELEASE_TAG#chart@}"
           sh scripts/bump-chart-version.sh "$version"
