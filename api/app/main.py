@@ -19,6 +19,13 @@ from .sitemap import router as sitemap_router
 from .store import nano_store, reset_all, store
 from .web import router as web_router
 
+# uvicorn/fastapi only configure their own named loggers (uvicorn,
+# uvicorn.error, uvicorn.access) - the root logger is otherwise untouched
+# and defaults to WARNING, which was silently dropping every INFO-level
+# log below (including ones that already existed here). basicConfig() is a
+# no-op if the root logger already has handlers, so this is safe however
+# the app is actually run (uvicorn, fastapi run, tests, etc).
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
 
 # Redis is shared by every pod, so only one pod needs to actually parse the
@@ -44,6 +51,7 @@ async def _load_items() -> None:
         logger.warning("Neither DUMP_URL nor DUMP_PATH is set - serving with empty item/nano stores")
         return
 
+    logger.info("Connecting to Redis")
     client = get_redis()
 
     if await client.get(_LOAD_READY_KEY) == version:
@@ -57,10 +65,12 @@ async def _load_items() -> None:
             await asyncio.sleep(0.5)
             waited += 0.5
             if await client.get(_LOAD_READY_KEY) == version:
+                logger.info("Dump load finished on another pod after %.1fs - ready", waited)
                 return
         logger.warning("Timed out waiting for another pod to finish loading the dump - serving what's in Redis")
         return
 
+    logger.info("Acquired load lock (version=%s) - this pod will load the dump", version)
     try:
         if await client.get(_LOAD_READY_KEY) == version:
             return  # someone else finished between our GET and our SET NX
@@ -69,13 +79,22 @@ async def _load_items() -> None:
         if dump_url:
             items, nanos = import_from_url(dump_url)
         else:
+            logger.info("Reading local item dump from %s", os.environ["DUMP_PATH"])
             with open(os.environ["DUMP_PATH"], "rb") as f:
                 items, nanos = parse_dump_zip(f.read())
+            logger.info("Parsed %d items (%d nano programs) from %s", len(items), len(nanos), os.environ["DUMP_PATH"])
 
+        logger.info("Flushing Redis before load")
         await reset_all()
+
+        logger.info("Writing %d items to Redis", len(items))
         await store.load(items)
+
+        logger.info("Writing %d nano programs to Redis", len(nanos))
         await nano_store.load(nanos)
+
         await client.set(_LOAD_READY_KEY, version)
+        logger.info("Dump load complete (version=%s) - ready to serve", version)
     finally:
         await client.delete(_LOAD_LOCK_KEY)
 
