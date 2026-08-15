@@ -27,10 +27,14 @@ implies a change to the other:
 
 - App releases are tagged `app-vX.Y.Z` and publish a container image to
   `ghcr.io/zznathans/aodb`.
-- Chart releases are tagged `chart-vX.Y.Z` and attach the packaged `.tgz`
-  as a release asset - install directly from that asset
-  (`helm install aodb-api ./aodb-api-X.Y.Z.tgz`), this repo doesn't publish
-  a browsable `helm repo add` index.
+- Chart releases are tagged `chart-vX.Y.Z`, attach the packaged `.tgz` as a
+  release asset, and publish to a Helm chart index at
+  https://aodb.ao.yeetbox.net/charts/ (`helm repo add aodb
+  https://aodb.ao.yeetbox.net/charts`).
+
+Both also keep `gh-pages` up to date: the app's README gets synced there as
+a browsable doc site, and the chart index/packages live under `charts/` on
+the same branch/domain.
 
 An app release automatically opens a PR bumping the chart's default image
 tag (`chart/values.yaml`) to match, so the chart stays deployable with the

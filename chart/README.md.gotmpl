@@ -29,6 +29,11 @@ helm unittest chart
 ```
 
 Each `chart-vX.Y.Z` GitHub Release gets the packaged `.tgz` attached as a
-release asset (see `.github/workflows/helm-release.yml`) - install directly
-from that asset (`helm install aodb-api ./aodb-api-X.Y.Z.tgz`) rather than
-via `helm repo add`; this repo doesn't publish a browsable chart index.
+release asset and published to the chart index at
+https://aodb.ao.yeetbox.net/charts/ (see `.github/workflows/helm-release.yml`):
+
+```
+helm repo add aodb https://aodb.ao.yeetbox.net/charts
+helm repo update
+helm install aodb-api aodb/aodb-api
+```
