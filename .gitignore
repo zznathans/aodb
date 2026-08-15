@@ -3,6 +3,8 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.sqlite3
+.coverage
+*.lcov
 .venv/
 node_modules/
 .cr-release-packages/
