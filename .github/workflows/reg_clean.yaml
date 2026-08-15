@@ -37,3 +37,7 @@ jobs:
           image-names: "aodb"
           dry-run: false
           keep-n-most-recent: 30
+          # Required by the action with no default - set far in the past so
+          # keep-n-most-recent above is the only thing that actually prunes;
+          # age on its own isn't a signal we care about here.
+          cut-off: 50y
