@@ -160,8 +160,9 @@ jobs:
           git commit -m "fix(chart): bump image to ${RELEASE_TAG}"
           git push origin "$branch"
 
-          gh pr create \
+          pr_url=$(gh pr create \
             --base main \
             --head "$branch" \
             --title "fix(chart): bump image to ${RELEASE_TAG}" \
-            --body "Bumps the chart's default image tag to [${RELEASE_TAG}](https://github.com/zznathans/aodb/releases/tag/${RELEASE_TAG})."
+            --body "Bumps the chart's default image tag to [${RELEASE_TAG}](https://github.com/zznathans/aodb/releases/tag/${RELEASE_TAG}).")
+          gh pr merge --auto --merge "$pr_url"
