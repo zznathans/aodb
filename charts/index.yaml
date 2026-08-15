@@ -1,0 +1,14 @@
+apiVersion: v1
+entries:
+  aodb:
+  - apiVersion: v2
+    appVersion: 1.4.0
+    created: "2026-08-15T21:11:27.703061945Z"
+    description: Helm chart for aodb
+    digest: 24b883beaabc634e44d61177a8235e31415d42c09ee3a5e68aa9bd151c4c51ac
+    name: aodb
+    type: application
+    urls:
+    - https://aodb.ao.yeetbox.net/charts/aodb-1.4.0.tgz
+    version: 1.4.0
+generated: "2026-08-15T21:11:27.702473018Z"
