@@ -1,28 +1,34 @@
+name: Registry Cleanup
+
 on:
   workflow_dispatch:
   schedule:
     - cron: "5 * * * *"  # every hour
 
-permissions:
-  contents: read
-  packages: read
+# GITHUB_TOKEN is unused here - the App token (below) does the actual work.
+permissions: {}
 
 jobs:
   clean:
     runs-on: ubuntu-latest
     name: Delete old test images
     steps:
+      # Reuses the aodb-release-bot GitHub App (APP_ID/APP_PRIVATE_KEY,
+      # also used for bot-opened PRs - see docker.yml) rather than a
+      # separate PAT. Needs the App's permissions extended to include
+      # Packages: write, which can only be done via the App's own settings
+      # page (no API for editing an existing App's permission set).
       - name: Generate a token
         id: generate-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2
         with:
-          app-id: ${{ secrets.GH_APP_ID }}
-          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
-      - uses: snok/container-retention-policy@v3.1.0
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      - uses: snok/container-retention-policy@d3bdcf5ce9b05f685154e4a16c39233b245e3d53 # v3.1.0
         with:
           account: zznathans
-          token: ${{ secrets.PAT }}
-          image-names: "container-retention-policy"
+          token: ${{ steps.generate-token.outputs.token }}
+          image-names: "aodb"
           cut-off: 3m
-          dry-run: true
+          dry-run: false
           keep-n-most-recent: 30
