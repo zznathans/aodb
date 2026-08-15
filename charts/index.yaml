@@ -3,12 +3,12 @@ entries:
   aodb:
   - apiVersion: v2
     appVersion: 1.4.0
-    created: "2026-08-15T21:11:27.703061945Z"
+    created: "2026-08-15T21:18:45.423093214Z"
     description: Helm chart for aodb
-    digest: 24b883beaabc634e44d61177a8235e31415d42c09ee3a5e68aa9bd151c4c51ac
+    digest: 410e4d87b69fedf89f4853c88253746195e847419a20ce781fddd38e22e6fcc6
     name: aodb
     type: application
     urls:
-    - https://aodb.ao.yeetbox.net/charts/aodb-1.4.0.tgz
+    - https://zznathans.github.io/aodb/charts/aodb-1.4.0.tgz
     version: 1.4.0
-generated: "2026-08-15T21:11:27.702473018Z"
+generated: "2026-08-15T21:18:45.422453378Z"
