@@ -1,5 +1,17 @@
 name: 'Dependency Review'
-on: [pull_request]
+
+# Not a required check (see the CI workflow for why that matters), so a
+# plain workflow-level path filter is safe here - only worth running when
+# a dependency manifest actually changed.
+on:
+  pull_request:
+    paths:
+      - 'api/requirements*.in'
+      - 'api/requirements*.txt'
+      - 'requirements-ci.in'
+      - 'requirements-ci.txt'
+      - 'package.json'
+      - 'api/Dockerfile'
 
 permissions:
   contents: read
