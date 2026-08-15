@@ -9,8 +9,37 @@ on:
 permissions: {}
 
 jobs:
+  # Every job below still always *runs* (reports a status) so the
+  # required-status-checks ruleset on main never sees a check that
+  # silently never reports - it just does nothing (fast) when the paths
+  # it cares about didn't change. This is deliberately job-level `if:`
+  # gating, not a workflow-level `on.paths` filter: GitHub treats a
+  # skipped job as satisfying a required check, but a workflow that never
+  # triggers at all leaves that required check pending forever.
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+      chart: ${{ steps.filter.outputs.chart }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'api/**'
+            chart:
+              - 'chart/**'
+              - '.yamllint.yaml'
+
   lint:
     name: Lint (api)
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -24,6 +53,8 @@ jobs:
 
   test:
     name: Tests (api)
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -37,6 +68,8 @@ jobs:
 
   yamllint:
     name: Yamllint (chart)
+    needs: changes
+    if: needs.changes.outputs.chart == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -48,6 +81,8 @@ jobs:
 
   helm-lint:
     name: Helm Lint (chart)
+    needs: changes
+    if: needs.changes.outputs.chart == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -62,7 +97,8 @@ jobs:
 
   helm-unittest:
     name: Helm Unit Tests (chart)
-    needs: [helm-lint]
+    needs: [changes, helm-lint]
+    if: needs.changes.outputs.chart == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
