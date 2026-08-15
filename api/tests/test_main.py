@@ -17,8 +17,10 @@ XML_TEXT = """<?xml version="1.0"?>
   </item>
   <item aoid="25980" patch="110000" metatype="n">
     <name>Death's Gaze</name>
+    <description>Attempts to hold the target in place.</description>
     <ql>142</ql>
     <icon>16248</icon>
+    <nanodata crystalid="26017" nanocost="265" ncu="44" />
     <nanoclass school="Combat" strain="147" />
   </item>
 </aodb>

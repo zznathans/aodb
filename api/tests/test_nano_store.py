@@ -4,9 +4,33 @@ from app.store import NanoStore, Requirement, _requirements_from_json, make_nano
 async def _seed(store: NanoStore) -> None:
     await store.load(
         [
-            make_nano(id=1, name="Death's Gaze", ql=142, school="Combat", profession=5),
-            make_nano(id=2, name="Complete Heal", ql=100, school="Healing", profession=3),
-            make_nano(id=3, name="Combat Boost", ql=142, school="Combat", profession=3),
+            make_nano(
+                id=1,
+                name="Death's Gaze",
+                ql=142,
+                description="Holds the target in place.",
+                school="Combat",
+                crystal_id=101,
+                profession=5,
+            ),
+            make_nano(
+                id=2,
+                name="Complete Heal",
+                ql=100,
+                description="Heals the target.",
+                school="Healing",
+                crystal_id=102,
+                profession=3,
+            ),
+            make_nano(
+                id=3,
+                name="Combat Boost",
+                ql=142,
+                description="Boosts combat skills.",
+                school="Combat",
+                crystal_id=103,
+                profession=3,
+            ),
         ]
     )
 
@@ -92,5 +116,7 @@ def test_requirements_from_json_handles_missing_field():
 
 
 def test_requirements_from_json_round_trips_real_requirements():
-    raw = '[{"attribute": "Profession", "operator": "exactly", "value": "5"}]'
-    assert _requirements_from_json(raw) == (Requirement(attribute="Profession", operator="exactly", value="5"),)
+    raw = '[{"hook": "To Use", "attribute": "Profession", "operator": "exactly", "value": "5"}]'
+    assert _requirements_from_json(raw) == (
+        Requirement(hook="To Use", attribute="Profession", operator="exactly", value="5"),
+    )

@@ -132,4 +132,4 @@ def test_import_from_url_downloads_and_parses():
     (request,), _ = mock_urlopen.call_args
     assert request.full_url == "https://example.invalid/171003.xml.zip"
     # Cloudflare blocks the default "Python-urllib/..." UA on the real bucket.
-    assert request.get_header("User-agent") == "aodb-api/1.0"
+    assert request.get_header("User-agent") == "aodb/1.0"

@@ -68,18 +68,18 @@ async def sitemap_index(request: Request) -> Response:
 @router.get("/sitemap-pages.xml", include_in_schema=False)
 async def sitemap_pages(request: Request) -> Response:
     base = str(request.base_url).rstrip("/")
-    return _xml_response(_urlset_xml([f"{base}/browse/", f"{base}/browse/items", f"{base}/browse/nanos"]))
+    return _xml_response(_urlset_xml([f"{base}/", f"{base}/items", f"{base}/nanos"]))
 
 
 @router.get("/sitemap-items-{n}.xml", include_in_schema=False)
 async def sitemap_items(request: Request, n: int) -> Response:
     base = str(request.base_url).rstrip("/")
     ids = await store.list_ids(_MAX_URLS_PER_SITEMAP, n * _MAX_URLS_PER_SITEMAP)
-    return _xml_response(_urlset_xml([f"{base}/browse/items/{id_}" for id_ in ids]))
+    return _xml_response(_urlset_xml([f"{base}/items/{id_}" for id_ in ids]))
 
 
 @router.get("/sitemap-nanos-{n}.xml", include_in_schema=False)
 async def sitemap_nanos(request: Request, n: int) -> Response:
     base = str(request.base_url).rstrip("/")
     ids = await nano_store.list_ids(_MAX_URLS_PER_SITEMAP, n * _MAX_URLS_PER_SITEMAP)
-    return _xml_response(_urlset_xml([f"{base}/browse/nanos/{id_}" for id_ in ids]))
+    return _xml_response(_urlset_xml([f"{base}/nanos/{id_}" for id_ in ids]))

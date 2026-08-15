@@ -31,9 +31,10 @@ deploying it.
   codes.
 - **Legacy AOML endpoint** - raw chat-markup responses for game-chat
   clients that expect that format, rather than JSON.
-- **Browse UI** (`/browse/`) - a stats landing page (item/nano counts,
-  nanos-by-school breakdown) plus searchable items/nanos pages with detail
-  views, entirely server-rendered.
+- **Browse UI** (`/`) - a stats landing page plus searchable items/nanos
+  pages (with category/profession breakdowns and detail views), entirely
+  server-rendered. The JSON API and legacy endpoint live under `/api` so
+  they never collide with these paths.
 - **Search-engine discovery** - `/robots.txt` and a chunked `/sitemap.xml`
   covering the full catalog.
 - **Redis-backed storage** shared across every pod, loaded once behind a
@@ -43,7 +44,7 @@ deploying it.
   packages stripped, every Python dependency hash-verified at install
   time.
 - **Optional analytics** - an opt-in client-side snippet on the browse UI
-  and `/docs` (nothing ships by default), and an opt-in
+  and `/api/docs` (nothing ships by default), and an opt-in
   [api-analytics](https://github.com/tom-draper/api-analytics) middleware
   for request-level metrics (never enabled unless an API key is
   configured; client IPs are never sent).

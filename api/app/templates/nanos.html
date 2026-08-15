@@ -1,30 +1,41 @@
 {% extends "base.html" %}
-{% block title %}Nanos - aodb-api{% endblock %}
+{% block title %}
+  {%- if profession is not none -%}
+    {{ profession | profession_name }} Nanos - aodb
+  {%- else -%}
+    Nanos - aodb
+  {%- endif -%}
+{% endblock %}
 {% block content %}
-  <h1>Nano Programs</h1>
+  <h1>
+    {%- if profession is not none -%}
+      {{ profession | profession_name }} Nanos
+    {%- else -%}
+      Nano Programs
+    {%- endif %} {% include "_api_links.html" %}
+  </h1>
 
-  <form id="search-form" method="get" action="/browse/nanos" data-kind="nanos" data-page-size="{{ page_size }}">
+  <form id="search-form" method="get" action="" data-kind="nanos" data-page-size="{{ page_size }}" data-profession="{{ profession if profession is not none else '' }}">
     <label>
       Name
       <input type="text" name="q" value="{{ q }}" placeholder="prefix match" autofocus>
     </label>
-    <label>
-      QL
-      <input type="number" name="ql" value="{{ ql if ql else '' }}" min="1" placeholder="any">
-    </label>
-    <label>
-      School
-      <input type="text" name="school" value="{{ school }}" placeholder="exact match, e.g. Combat">
-    </label>
-    <label>
-      Profession ID
-      <input type="number" name="profession" value="{{ profession if profession is not none else '' }}" placeholder="any">
-    </label>
     <button type="submit">Search</button>
   </form>
 
-  <div id="results-container">
-    {% include "_nanos_results.html" %}
-  </div>
+  {% if has_query %}
+    <div id="results-container">
+      {% include "_nanos_results.html" %}
+    </div>
+  {% else %}
+    <div class="tile-grid">
+      {% for prof in professions %}
+      <a class="tile" href="/nanos/professions/{{ prof.slug }}">
+        <span class="tile-name">{{ prof.name }}</span>
+        <span class="tile-stat">{{ prof.nano_count }} nano{{ "s" if prof.nano_count != 1 }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  {% endif %}
 {% endblock %}
 {% block scripts %}<script src="/static/search.js" defer></script>{% endblock %}

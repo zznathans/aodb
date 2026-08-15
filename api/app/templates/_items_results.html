@@ -7,16 +7,16 @@
   </p>
 
   {% if items %}
-    <table class="results">
+    <table class="results items-table">
       <thead>
-        <tr><th>Name</th><th>QL</th><th>Description</th></tr>
+        <tr><th class="col-name" data-sort-type="text">Name</th><th class="col-ql" data-sort-type="number">QL</th><th class="col-description" data-sort-type="text">Description</th></tr>
       </thead>
       <tbody>
         {% for item in items %}
         <tr>
-          <td><a href="/browse/items/{{ item.id }}">{{ item.name }}</a></td>
-          <td>{{ item.ql }}</td>
-          <td>{{ item.description or "" }}</td>
+          <td class="col-name"><a href="/items/{{ item.id }}">{{ item.name }}</a></td>
+          <td>{{ item.ql_display }}</td>
+          <td class="col-description">{{ item.description or "" }}</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -25,10 +25,10 @@
 
   <nav class="pagination">
     {% if page > 1 %}
-      <a href="/browse/items?q={{ q }}&ql={{ ql }}&page={{ page - 1 }}" data-page="{{ page - 1 }}">&laquo; Prev</a>
+      <a href="{{ request.url.path }}?q={{ q }}&page={{ page - 1 }}" data-page="{{ page - 1 }}">&laquo; Prev</a>
     {% endif %}
     <span>Page {{ page }}</span>
     {% if has_next %}
-      <a href="/browse/items?q={{ q }}&ql={{ ql }}&page={{ page + 1 }}" data-page="{{ page + 1 }}">Next &raquo;</a>
+      <a href="{{ request.url.path }}?q={{ q }}&page={{ page + 1 }}" data-page="{{ page + 1 }}">Next &raquo;</a>
     {% endif %}
   </nav>

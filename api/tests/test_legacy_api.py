@@ -18,7 +18,7 @@ async def test_search_returns_matching_items(client):
     await _seed()
 
     resp = client.get(
-        "/legacy",
+        "/api/legacy",
         params={"bot": "BeBot", "output": "aoml", "max": 50, "search": "Notum", "ql": 0, "icons": "true"},
     )
 
@@ -33,7 +33,7 @@ async def test_search_returns_matching_items(client):
 async def test_search_with_no_matches_returns_200_not_error(client):
     await _seed()
 
-    resp = client.get("/legacy", params={"output": "aoml", "search": "Nonexistent Item"})
+    resp = client.get("/api/legacy", params={"output": "aoml", "search": "Nonexistent Item"})
 
     assert resp.status_code == 200
     assert "No items found" in resp.text
@@ -42,7 +42,7 @@ async def test_search_with_no_matches_returns_200_not_error(client):
 async def test_ql_filter(client):
     await _seed()
 
-    resp = client.get("/legacy", params={"output": "aoml", "search": "Notum", "ql": 200})
+    resp = client.get("/api/legacy", params={"output": "aoml", "search": "Notum", "ql": 200})
 
     assert "Notum Tank Armor" in resp.text
     assert "Notum Splitter" not in resp.text
@@ -51,7 +51,7 @@ async def test_ql_filter(client):
 async def test_icons_false_omits_icon_tag(client):
     await _seed()
 
-    resp = client.get("/legacy", params={"output": "aoml", "search": "Notum", "icons": "false"})
+    resp = client.get("/api/legacy", params={"output": "aoml", "search": "Notum", "icons": "false"})
 
     assert "<img src=rdb://" not in resp.text
 
@@ -60,7 +60,7 @@ async def test_color_params_wrap_output_in_font_tags(client):
     await _seed()
 
     resp = client.get(
-        "/legacy",
+        "/api/legacy",
         params={
             "output": "aoml",
             "search": "Notum",
@@ -76,7 +76,7 @@ async def test_color_params_wrap_output_in_font_tags(client):
 
 
 async def test_unsupported_output_format_still_returns_200_body(client):
-    resp = client.get("/legacy", params={"output": "json", "search": "x"})
+    resp = client.get("/api/legacy", params={"output": "json", "search": "x"})
 
     # Not a hard requirement of the old service, but a deliberate choice here:
     # fail loudly with a 400 rather than silently misrendering, since no real
@@ -85,7 +85,7 @@ async def test_unsupported_output_format_still_returns_200_body(client):
 
 
 async def test_empty_store_still_returns_200(client):
-    resp = client.get("/legacy", params={"output": "aoml", "search": "anything"})
+    resp = client.get("/api/legacy", params={"output": "aoml", "search": "anything"})
 
     assert resp.status_code == 200
     assert "No items found" in resp.text
@@ -101,7 +101,7 @@ async def test_docs_includes_no_analytics_by_default(client):
     # This repo used to hardcode real tracking IDs here - a stock
     # deployment (no app/templates/_analytics.html supplied) must ship
     # with none at all. See test_web.py for the "file present" case.
-    resp = client.get("/docs")
+    resp = client.get("/api/docs")
 
     assert resp.status_code == 200
     assert "cloudflareinsights.com" not in resp.text
@@ -112,7 +112,7 @@ async def test_docs_includes_analytics_partial_when_present(client):
     assert not _ANALYTICS_PARTIAL.exists()
     _ANALYTICS_PARTIAL.write_text("<script>window.__test_analytics = true;</script>")
     try:
-        resp = client.get("/docs")
+        resp = client.get("/api/docs")
         assert "window.__test_analytics = true;" in resp.text
     finally:
         _ANALYTICS_PARTIAL.unlink()
@@ -128,5 +128,5 @@ async def test_api_catalog_describes_this_api(client):
     body = resp.json()
     entry = body["linkset"][0]
     assert entry["anchor"] == "http://testserver"
-    assert entry["service-desc"][0]["href"] == "http://testserver/openapi.json"
-    assert entry["service-doc"][0]["href"] == "http://testserver/docs"
+    assert entry["service-desc"][0]["href"] == "http://testserver/api/openapi.json"
+    assert entry["service-doc"][0]["href"] == "http://testserver/api/docs"

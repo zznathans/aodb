@@ -1,6 +1,6 @@
 <!--
 Copy this file to _analytics.html (same directory) and fill in your own
-values to enable client-side analytics on /docs and every /browse/* page.
+values to enable client-side analytics on /api/docs and every browse UI page.
 _analytics.html is .gitignored - it never gets committed to this repo, and
 nothing here is included at all when that file doesn't exist. Whatever you
 put here is included as raw HTML, verbatim.

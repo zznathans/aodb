@@ -31,6 +31,11 @@ PROFESSION_NAMES: dict[int, str] = {
     15: "Shade",
 }
 
+# URL-friendly slug -> id, for /nanos/professions/{slug} (see
+# app/web.py) - lets that URL read as a name ("nano-technician") rather
+# than a raw numeric id a visitor has no way to know.
+PROFESSION_SLUGS: dict[str, int] = {name.lower().replace(" ", "-"): id_ for id_, name in PROFESSION_NAMES.items()}
+
 
 class ProfessionOut(BaseModel):
     id: int
