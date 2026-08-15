@@ -1,11 +1,14 @@
 name: Helm Release
 
 # Packages chart/ and attaches the .tgz to the chart@X.Y.Z GitHub Release
-# that release.yml's multi-semantic-release run just created, then pushes
-# it as an OCI artifact to ghcr.io/zznathans/aodb/charts (same registry/
-# namespace as the app image) - `helm install` pulls straight from there,
-# no `helm repo add`/index.yaml needed. gh-pages is reserved for the app's
-# README doc site (pages.yml) only, not chart hosting.
+# that release.yml's multi-semantic-release run just created, then publishes
+# it two ways: as an OCI artifact at ghcr.io/zznathans/aodb/charts (no
+# `helm repo add` needed, the primary/recommended path) and, for backwards
+# compatibility with third-party tooling that doesn't speak OCI registries
+# yet, to a classic Helm chart index at gh-pages:charts/ (served at
+# https://aodb.ao.yeetbox.net/charts/, alongside the app's README doc site
+# published by pages.yml on the same branch/domain, different path) so
+# `helm repo add` still works too.
 #
 # chart/Chart.yaml's version/appVersion is updated in this job's own
 # checkout just before packaging (cr package reads it to name the
@@ -44,6 +47,17 @@ jobs:
         with:
           ref: ${{ env.RELEASE_TAG }}
 
+      # Also checked out alongside the tag checkout above (into gh-pages/)
+      # rather than in a separate job handed the packaged chart via
+      # upload-artifact/download-artifact - that round trip turned out
+      # unreliable (the artifact was gone by the time a later step looked
+      # for it). Packaging and publishing the index share one job/checkout
+      # instead, no cross-job file handoff needed.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: gh-pages
+          path: gh-pages
+
       - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
         with:
           version: "3.17.0"
@@ -66,6 +80,25 @@ jobs:
 
       - name: Push chart to GHCR (OCI)
         run: helm push .cr-release-packages/*.tgz oci://ghcr.io/zznathans/aodb/charts
+
+      - name: Add the new package and regenerate charts/index.yaml
+        run: |
+          mkdir -p gh-pages/charts
+          cp .cr-release-packages/*.tgz gh-pages/charts/
+          helm repo index gh-pages/charts --url https://aodb.ao.yeetbox.net/charts --merge gh-pages/charts/index.yaml
+
+      - name: Commit and push the index
+        working-directory: gh-pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add charts
+          if git diff --cached --quiet; then
+            echo "Index already up to date, nothing to do."
+            exit 0
+          fi
+          git commit -m "chore(charts): publish ${RELEASE_TAG} to the index"
+          git push origin gh-pages
 
   sync-chart-yaml:
     name: Sync Chart.yaml on main

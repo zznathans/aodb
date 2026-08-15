@@ -57,17 +57,21 @@ implies a change to the other:
 - App releases are tagged `app@X.Y.Z` and publish a multi-arch (amd64 +
   arm64) container image to `ghcr.io/zznathans/aodb`.
 - Chart releases are tagged `chart@X.Y.Z`, attach the packaged `.tgz` as a
-  release asset, and push it as an OCI artifact to
+  release asset, and publish it two ways: as an OCI artifact at
   `oci://ghcr.io/zznathans/aodb/charts` (`helm install aodb
-  oci://ghcr.io/zznathans/aodb/charts/aodb --version X.Y.Z`) - same
-  registry/namespace as the app image, no `helm repo add` needed.
+  oci://ghcr.io/zznathans/aodb/charts/aodb --version X.Y.Z`, no `helm repo
+  add` needed - the recommended path) and to a classic Helm chart index at
+  https://aodb.ao.yeetbox.net/charts/ (`helm repo add aodb
+  https://aodb.ao.yeetbox.net/charts`), kept around for third-party tooling
+  that doesn't speak OCI registries yet.
 
 An app release automatically opens a PR bumping the chart's default image
 tag (`chart/values.yaml`) to match, so the chart stays deployable with the
 latest image without a chart release being required just for that.
 
 `gh-pages` hosts the app's README as a browsable doc site (synced on every
-app release) - it doesn't host the chart.
+app release) alongside the chart index above, at a different path on the
+same branch/domain.
 
 ## Development
 
