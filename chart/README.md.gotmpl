@@ -34,11 +34,22 @@ helm unittest chart
 ```
 
 Each `chart@X.Y.Z` GitHub Release gets the packaged `.tgz` attached as a
-release asset and pushed as an OCI artifact to
-`oci://ghcr.io/zznathans/aodb/charts` (see
-`.github/workflows/helm-release.yml`) - same registry/namespace as the
-app image, no `helm repo add` needed:
+release asset and published two ways (see
+`.github/workflows/helm-release.yml`):
+
+As an OCI artifact at `oci://ghcr.io/zznathans/aodb/charts` - same
+registry/namespace as the app image, no `helm repo add` needed, the
+recommended path:
 
 ```
 helm install aodb oci://ghcr.io/zznathans/aodb/charts/aodb --version X.Y.Z
+```
+
+And, for third-party tooling that doesn't speak OCI registries yet, to a
+classic Helm chart index at https://aodb.ao.yeetbox.net/charts/:
+
+```
+helm repo add aodb https://aodb.ao.yeetbox.net/charts
+helm repo update
+helm install aodb aodb/aodb --version X.Y.Z
 ```
