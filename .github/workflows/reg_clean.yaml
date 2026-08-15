@@ -34,7 +34,6 @@ jobs:
           # personal account and fails to parse the response).
           account: user
           token: ${{ steps.generate-token.outputs.token }}
-          image-names: "aodb"
-          cut-off: 3m
+          image-names: "aodb,aodb-api"
           dry-run: false
           keep-n-most-recent: 30
