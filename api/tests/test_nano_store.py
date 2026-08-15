@@ -1,4 +1,4 @@
-from app.store import NanoStore, make_nano
+from app.store import NanoStore, Requirement, _requirements_from_json, make_nano
 
 
 async def _seed(store: NanoStore) -> None:
@@ -81,3 +81,16 @@ async def test_school_counts_ignores_nanos_without_a_school(fake_redis):
     await store.load([make_nano(id=1, name="No School Nano", ql=1)])
 
     assert await store.school_counts() == {}
+
+
+def test_requirements_from_json_handles_missing_field():
+    # A hash written before "requirements" was ever populated (or any
+    # other malformed/partial data) has no such key at all - h.get()
+    # returns None, not "[]" - distinct from the empty-list case.
+    assert _requirements_from_json(None) == ()
+    assert _requirements_from_json("") == ()
+
+
+def test_requirements_from_json_round_trips_real_requirements():
+    raw = '[{"attribute": "Profession", "operator": "exactly", "value": "5"}]'
+    assert _requirements_from_json(raw) == (Requirement(attribute="Profession", operator="exactly", value="5"),)

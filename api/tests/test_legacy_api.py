@@ -52,6 +52,25 @@ async def test_icons_false_omits_icon_tag(client):
     assert "<img src=rdb://" not in resp.text
 
 
+async def test_color_params_wrap_output_in_font_tags(client):
+    await _seed()
+
+    resp = client.get(
+        "/legacy",
+        params={
+            "output": "aoml",
+            "search": "Notum",
+            "color_header": "FFFFFF",
+            "color_highlight": "FF0000",
+            "color_normal": "00FF00",
+        },
+    )
+
+    assert "<font color='#FFFFFF'>Item Search Results" in resp.text
+    assert "<font color='#FF0000'>" in resp.text
+    assert "<font color='#00FF00'> QL200</font>" in resp.text
+
+
 async def test_unsupported_output_format_still_returns_200_body(client):
     resp = client.get("/legacy", params={"output": "json", "search": "x"})
 
