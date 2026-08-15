@@ -48,12 +48,37 @@ tests:
           path: spec.template.spec.containers[0].env[1].value
           value: redis://example-redis:6379/0
 
-  - it: fails when redisUrl is not set
+  - it: fails when neither redisUrl nor redis.enabled is set
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
     asserts:
       - failedTemplate:
-          errorMessage: "aodbApi.redisUrl is required"
+          errorMessage: "aodbApi.redisUrl is required (or set aodbApi.redis.enabled=true to deploy a bundled Redis)"
+
+  - it: derives REDIS_URL from the bundled redis service when redis.enabled and redisUrl is unset
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redis.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[1].name
+          value: REDIS_URL
+      - equal:
+          path: spec.template.spec.containers[0].env[1].value
+          value: redis://RELEASE-NAME-redis.NAMESPACE.svc.cluster.local:6379/0
+
+  - it: explicit redisUrl wins over redis.enabled when both are set
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.redis.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[1].name
+          value: REDIS_URL
+      - equal:
+          path: spec.template.spec.containers[0].env[1].value
+          value: redis://example-redis:6379/0
 
   - it: defaults to a single replica
     set:

@@ -1,0 +1,134 @@
+suite: redis
+templates:
+  - redis.yaml
+tests:
+  - it: renders nothing when redis.enabled is unset (default)
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders a ConfigMap and Redis CR when redis.enabled is true
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redis.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 2
+      - documentIndex: 0
+        isKind:
+          of: ConfigMap
+      - documentIndex: 0
+        equal:
+          path: metadata.name
+          value: RELEASE-NAME-redis-additional-config
+      - documentIndex: 1
+        isKind:
+          of: Redis
+      - documentIndex: 1
+        equal:
+          path: metadata.name
+          value: RELEASE-NAME-redis
+
+  - it: writes maxmemory settings into the ConfigMap's redis-additional.conf
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redis.enabled: true
+      aodbApi.redis.maxmemory: 250mb
+      aodbApi.redis.maxmemoryPolicy: noeviction
+    asserts:
+      - documentIndex: 0
+        equal:
+          path: data["redis-additional.conf"]
+          value: |
+            maxmemory 250mb
+            maxmemory-policy noeviction
+
+  - it: points the Redis CR's additionalRedisConfig at the ConfigMap name
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redis.enabled: true
+    asserts:
+      - documentIndex: 1
+        equal:
+          path: spec.redisConfig.additionalRedisConfig
+          value: RELEASE-NAME-redis-additional-config
+
+  - it: passes image, resources, and storage size through from values
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redis.enabled: true
+      aodbApi.redis.image.repository: my-registry/redis
+      aodbApi.redis.image.tag: "7.2"
+      aodbApi.redis.resources.limits.memory: 1Gi
+      aodbApi.redis.storage.size: 5Gi
+    asserts:
+      - documentIndex: 1
+        equal:
+          path: spec.kubernetesConfig.image
+          value: my-registry/redis:7.2
+      - documentIndex: 1
+        equal:
+          path: spec.kubernetesConfig.resources.limits.memory
+          value: 1Gi
+      - documentIndex: 1
+        equal:
+          path: spec.storage.volumeClaimTemplate.spec.resources.requests.storage
+          value: 5Gi
+
+  - it: does not render a ServiceMonitor when serviceMonitor.enabled is unset (default)
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redis.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 2
+
+  - it: does not render a ServiceMonitor when serviceMonitor.enabled is true but redis is disabled
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.redis.serviceMonitor.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders a ServiceMonitor when both redis.enabled and serviceMonitor.enabled are true
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redis.enabled: true
+      aodbApi.redis.serviceMonitor.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 3
+      - documentIndex: 2
+        isKind:
+          of: ServiceMonitor
+      - documentIndex: 2
+        equal:
+          path: metadata.name
+          value: RELEASE-NAME-redis
+      - documentIndex: 2
+        equal:
+          path: spec.selector.matchLabels
+          value:
+            app: RELEASE-NAME-redis
+            app.kubernetes.io/component: metrics
+      - documentIndex: 2
+        equal:
+          path: spec.endpoints[0].interval
+          value: 30s
+
+  - it: passes serviceMonitor.interval through from values
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redis.enabled: true
+      aodbApi.redis.serviceMonitor.enabled: true
+      aodbApi.redis.serviceMonitor.interval: 15s
+    asserts:
+      - documentIndex: 2
+        equal:
+          path: spec.endpoints[0].interval
+          value: 15s

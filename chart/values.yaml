@@ -5,10 +5,78 @@ aodbApi:
 
   # -- Connection URL for the Redis instance this app uses to store the loaded item dump and
   # back its search index (see the app's own README) - e.g. redis://my-redis:6379/0, or
-  # redis://:password@my-redis:6379/0 if auth is enabled. This chart doesn't deploy Redis
-  # itself; point it at whatever instance you've already got running. Assumed dedicated to
-  # this app - a fresh load flushes it.
+  # redis://:password@my-redis:6379/0 if auth is enabled. Takes precedence over
+  # aodbApi.redis.enabled if both are set. Leave unset (and set aodbApi.redis.enabled=true)
+  # to use the chart's own bundled Redis instead of pointing at an externally-provisioned one.
   redisUrl: ""
+
+  redis:
+    # -- Deploy a bundled Redis instance (via the OT-CONTAINER-KIT/redis-operator `Redis`
+    # custom resource, standalone mode only) alongside this app, instead of requiring an
+    # externally-provisioned aodbApi.redisUrl. Requires the redis-operator CRDs to already be
+    # installed in the target cluster. Off by default: enabling this for an existing
+    # installation that already points aodbApi.redisUrl at its own Redis would otherwise start
+    # deploying an unwanted, unused second Redis instance.
+    enabled: false
+
+    # -- maxmemory directive for the bundled Redis instance. Needs headroom below
+    # aodbApi.redis.resources.limits.memory - too tight a gap caused real OOMKills in
+    # production (the memory limit alone isn't enough; Redis needs to know its own budget to
+    # evict rather than exceed the container limit).
+    maxmemory: 500mb
+
+    # -- maxmemory-policy directive for the bundled Redis instance. allkeys-lru is safe here
+    # since this instance is dedicated to this app and a fresh dump load flushes/repopulates it
+    # anyway - evicting under memory pressure beats refusing writes.
+    maxmemoryPolicy: allkeys-lru
+
+    image:
+      # -- Container image repository for the bundled Redis instance.
+      repository: quay.io/opstree/redis
+      # -- Container image tag for the bundled Redis instance.
+      tag: latest
+      # -- Image pull policy for the bundled Redis instance.
+      pullPolicy: IfNotPresent
+
+    # -- Resource requests and limits for the bundled Redis instance's main container. Keep
+    # the memory limit comfortably above aodbApi.redis.maxmemory above.
+    resources:
+      requests:
+        cpu: 101m
+        memory: 128Mi
+      limits:
+        cpu: 101m
+        memory: 512Mi
+
+    exporter:
+      image:
+        # -- Container image repository for the redis-exporter sidecar.
+        repository: quay.io/opstree/redis-exporter
+        # -- Container image tag for the redis-exporter sidecar.
+        tag: latest
+        # -- Image pull policy for the redis-exporter sidecar.
+        pullPolicy: Always
+      # -- Resource requests and limits for the redis-exporter sidecar container.
+      resources:
+        requests:
+          cpu: 100m
+          memory: 128Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
+
+    storage:
+      # -- Size of the PersistentVolumeClaim provisioned for the bundled Redis instance.
+      size: 1Gi
+
+    serviceMonitor:
+      # -- Create a Prometheus Operator ServiceMonitor for the bundled Redis instance's
+      # exporter metrics. Separate toggle from aodbApi.redis.enabled since it depends on the
+      # prometheus-operator CRDs being installed, which isn't guaranteed just because Redis
+      # itself is being deployed.
+      enabled: false
+      # -- Scrape interval for the Redis metrics ServiceMonitor.
+      interval: 30s
 
   # -- Number of pod replicas. Safe to run more than one - each replica independently loads its
   # own in-memory copy of the dump from dumpUrl on startup, no shared state between them.

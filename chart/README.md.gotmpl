@@ -13,8 +13,14 @@ behind whatever externally-managed ingress/traffic routing your cluster
 already uses.
 
 The app stores the loaded dump and its search index in Redis
-(`aodbApi.redisUrl`) - this chart doesn't deploy Redis itself, point it at
-whatever instance you've already got running.
+(`aodbApi.redisUrl`) - by default this chart doesn't deploy Redis itself,
+point it at whatever instance you've already got running. Alternatively,
+set `aodbApi.redis.enabled=true` to have the chart deploy its own
+dedicated Redis instance instead (via the
+[redis-operator](https://github.com/OT-CONTAINER-KIT/redis-operator)
+`Redis` custom resource, standalone mode - the operator's CRDs must
+already be installed in the target cluster). `aodbApi.redisUrl` always
+takes precedence when set.
 
 {{ template "chart.valuesSection" . }}
 

@@ -1,0 +1,61 @@
+{{- if .Values.aodbApi.redis.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aodb.redisName" . }}-additional-config
+  namespace: {{ .Release.Namespace }}
+data:
+  redis-additional.conf: |
+    maxmemory {{ .Values.aodbApi.redis.maxmemory }}
+    maxmemory-policy {{ .Values.aodbApi.redis.maxmemoryPolicy }}
+---
+apiVersion: redis.redis.opstreelabs.in/v1beta2
+kind: Redis
+metadata:
+  name: {{ include "aodb.redisName" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  redisConfig:
+    additionalRedisConfig: {{ include "aodb.redisName" . }}-additional-config
+  podSecurityContext:
+    runAsUser: 1000
+    fsGroup: 1000
+  kubernetesConfig:
+    image: {{ .Values.aodbApi.redis.image.repository }}:{{ .Values.aodbApi.redis.image.tag }}
+    imagePullPolicy: {{ .Values.aodbApi.redis.image.pullPolicy }}
+    resources:
+      {{- toYaml .Values.aodbApi.redis.resources | nindent 6 }}
+  redisExporter:
+    enabled: true
+    image: {{ .Values.aodbApi.redis.exporter.image.repository }}:{{ .Values.aodbApi.redis.exporter.image.tag }}
+    imagePullPolicy: {{ .Values.aodbApi.redis.exporter.image.pullPolicy }}
+    resources:
+      {{- toYaml .Values.aodbApi.redis.exporter.resources | nindent 6 }}
+  storage:
+    volumeClaimTemplate:
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.aodbApi.redis.storage.size }}
+{{- if .Values.aodbApi.redis.serviceMonitor.enabled }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "aodb.redisName" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ include "aodb.redisName" . }}
+      app.kubernetes.io/component: metrics
+  namespaceSelector:
+    matchNames:
+      - {{ .Release.Namespace }}
+  endpoints:
+    - port: redis-exporter
+      path: /metrics
+      interval: {{ .Values.aodbApi.redis.serviceMonitor.interval }}
+{{- end }}
+{{- end }}
