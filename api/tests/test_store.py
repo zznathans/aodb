@@ -158,3 +158,35 @@ async def test_list_ids_respects_limit_and_offset(fake_redis):
     assert len(first_page) == 2
     assert len(second_page) == 2
     assert set(first_page) & set(second_page) == set()
+
+
+async def test_load_does_not_flush_existing_data(fake_redis):
+    store = ItemStore()
+    await store.load([make_item(id=1, name="Old Item")])
+    await store.load([make_item(id=2, name="New Item")])
+
+    assert await store.get(1) is not None
+    assert await store.get(2) is not None
+
+
+async def test_load_skips_ids_that_already_exist(fake_redis):
+    store = ItemStore()
+    await store.load([make_item(id=1, name="Original Name", ql=100)])
+    await store.load([make_item(id=1, name="Changed Name", ql=200)])
+
+    item = await store.get(1)
+    assert item.name == "Original Name"
+    assert item.ql == 100
+
+
+async def test_load_category_counts_reflect_the_full_incoming_list_each_time(fake_redis):
+    store = ItemStore()
+    await store.load([make_item(id=1, name="Item One", category="armor")])
+    await store.load(
+        [
+            make_item(id=1, name="Item One", category="armor"),
+            make_item(id=2, name="Item Two", category="armor"),
+        ]
+    )
+
+    assert await store.category_counts() == {"armor": 2}
