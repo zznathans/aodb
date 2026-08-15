@@ -14,6 +14,18 @@ aodbApi:
   # own in-memory copy of the dump from dumpUrl on startup, no shared state between them.
   replicaCount: 1
 
+  # -- Extra annotations to add to the pod template (e.g. for a service mesh sidecar injector
+  # or a config-reload trigger).
+  podAnnotations: {}
+
+  # -- Extra labels to add to the pod template, in addition to the chart-managed `app` label.
+  podLabels: {}
+
+  # -- Extra environment variables to set on the app container, in addition to DUMP_URL and
+  # REDIS_URL. Each entry is a raw Kubernetes EnvVar (supports valueFrom, e.g. secretKeyRef) -
+  # e.g. for API_ANALYTICS_KEY (see the app's own README).
+  extraEnv: []
+
   # -- Container image registry and repository for the aodb-api image.
   imageRepository: ghcr.io/zznathans/aodb
   # -- Image tag to deploy.

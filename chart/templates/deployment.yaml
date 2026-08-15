@@ -14,6 +14,13 @@ spec:
     metadata:
       labels:
         app: {{ .Release.Name }}
+        {{- with .Values.aodbApi.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.aodbApi.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
     spec:
       serviceAccount: {{ .Release.Name }}-serviceaccount
       containers:
@@ -26,6 +33,9 @@ spec:
               value: {{ required "aodbApi.dumpUrl is required" .Values.aodbApi.dumpUrl | quote }}
             - name: REDIS_URL
               value: {{ required "aodbApi.redisUrl is required" .Values.aodbApi.redisUrl | quote }}
+            {{- with .Values.aodbApi.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true

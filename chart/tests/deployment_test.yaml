@@ -85,3 +85,67 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].securityContext.capabilities.drop[0]
           value: ALL
+
+  - it: has no extra pod annotations or labels by default
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+    asserts:
+      - isNull:
+          path: spec.template.metadata.annotations
+      - equal:
+          path: spec.template.metadata.labels
+          value:
+            app: RELEASE-NAME
+
+  - it: adds podAnnotations to the pod template
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.podAnnotations:
+        example.com/annotation: hello
+    asserts:
+      - equal:
+          path: spec.template.metadata.annotations
+          value:
+            example.com/annotation: hello
+
+  - it: adds podLabels to the pod template alongside the app label
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.podLabels:
+        example.com/label: hello
+    asserts:
+      - equal:
+          path: spec.template.metadata.labels
+          value:
+            app: RELEASE-NAME
+            example.com/label: hello
+
+  - it: appends extraEnv after DUMP_URL and REDIS_URL
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.extraEnv:
+        - name: API_ANALYTICS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aodb-secrets
+              key: api-analytics-key
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[2].name
+          value: API_ANALYTICS_KEY
+      - equal:
+          path: spec.template.spec.containers[0].env[2].valueFrom.secretKeyRef.name
+          value: aodb-secrets
+
+  - it: no extraEnv by default
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers[0].env
+          count: 2
