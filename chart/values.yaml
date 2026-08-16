@@ -99,6 +99,15 @@ aodbApi:
   # e.g. for API_ANALYTICS_KEY (see the app's own README).
   extraEnv: []
 
+  # -- Raw HTML for client-side analytics (e.g. a Cloudflare beacon or Google Analytics
+  # snippet), included verbatim on /api/docs and every browse UI page - see the app's own
+  # README for app/templates/_analytics.html. That file is gitignored and never part of the
+  # published image, so it can't just be baked in; setting this instead renders it into a
+  # ConfigMap and mounts it over that path in the pod. Leave unset (the default) for no
+  # client-side analytics at all - this is unrelated to aodbApi.extraEnv's API_ANALYTICS_KEY,
+  # which is server-side request analytics, not a page script.
+  analyticsHtml: ""
+
   # -- Container image registry and repository for the aodb-api image.
   imageRepository: ghcr.io/zznathans/aodb
   # -- Image tag to deploy.

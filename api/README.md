@@ -113,8 +113,12 @@ as-is sends no analytics anywhere.
 `app/templates/_analytics.html` if that file exists (e.g. a Cloudflare
 Web Analytics beacon, a Google Analytics tag - see
 `app/templates/_analytics.html.example` for the expected shape). That
-file is `.gitignore`d and never committed; supplying one (a custom image
-layer, a mounted secret, etc.) is entirely up to whoever deploys this.
+file is `.gitignore`d and never committed, so it's never part of the
+published image either - deploying via the chart, set
+`aodbApi.analyticsHtml` to the same raw HTML and it gets mounted over
+that path for you (see `chart/README.md.gotmpl`); running from source
+some other way, supplying the file (a custom image layer, a mounted
+secret, etc.) is up to you.
 
 Separately, request-level analytics (method, path, status, response
 time) can optionally be forwarded to [api-analytics](https://github.com/tom-draper/api-analytics)

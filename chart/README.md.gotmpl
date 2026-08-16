@@ -22,6 +22,12 @@ dedicated Redis instance instead (via the
 already be installed in the target cluster). `aodbApi.redisUrl` always
 takes precedence when set.
 
+Client-side analytics (e.g. a Cloudflare Web Analytics beacon or Google
+Analytics tag - see the app's own README) aren't in the published image at
+all, since the file that carries them is gitignored. Set
+`aodbApi.analyticsHtml` to that same raw HTML and the chart renders it into
+a ConfigMap and mounts it into the pod for you - no image rebuild needed.
+
 {{ template "chart.valuesSection" . }}
 
 ## Development

@@ -46,6 +46,13 @@ spec:
               drop: ["ALL"]
           resources:
             {{- toYaml .Values.aodbApi.resources | nindent 12 }}
+          {{- if .Values.aodbApi.analyticsHtml }}
+          volumeMounts:
+            - name: analytics-html
+              mountPath: /app/app/templates/_analytics.html
+              subPath: _analytics.html
+              readOnly: true
+          {{- end }}
           readinessProbe:
             httpGet:
               path: /healthz
@@ -86,3 +93,9 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 15
             failureThreshold: 16
+      {{- if .Values.aodbApi.analyticsHtml }}
+      volumes:
+        - name: analytics-html
+          configMap:
+            name: {{ .Release.Name }}-analytics-html
+      {{- end }}
