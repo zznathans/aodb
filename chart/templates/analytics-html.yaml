@@ -1,0 +1,9 @@
+{{- if .Values.aodbApi.analyticsHtml }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-analytics-html
+  namespace: {{ .Release.Namespace }}
+data:
+  _analytics.html: {{ .Values.aodbApi.analyticsHtml | quote }}
+{{- end }}

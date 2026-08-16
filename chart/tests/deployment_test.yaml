@@ -174,3 +174,33 @@ tests:
       - lengthEqual:
           path: spec.template.spec.containers[0].env
           count: 2
+
+  - it: no analytics-html volume or mount by default
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+    asserts:
+      - isNull:
+          path: spec.template.spec.volumes
+      - isNull:
+          path: spec.template.spec.containers[0].volumeMounts
+
+  - it: mounts the analytics-html ConfigMap over _analytics.html when analyticsHtml is set
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.analyticsHtml: <script>hi</script>
+    asserts:
+      - equal:
+          path: spec.template.spec.volumes[0]
+          value:
+            name: analytics-html
+            configMap:
+              name: RELEASE-NAME-analytics-html
+      - equal:
+          path: spec.template.spec.containers[0].volumeMounts[0]
+          value:
+            name: analytics-html
+            mountPath: /app/app/templates/_analytics.html
+            subPath: _analytics.html
+            readOnly: true
