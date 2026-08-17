@@ -174,11 +174,21 @@ jobs:
           output: trivy-results.sarif
           exit-code: "0"
 
+      # Pinned to a fixed string rather than left to auto-derive from the
+      # job name: without this, codeql-action defaults the category to
+      # "<workflow file>:<job id>", and a later job rename (this one used
+      # to be "build-and-push") silently starts a *new* alert stream -
+      # the old category's alerts never get superseded by fresh scans and
+      # sit "open" in the Security tab forever, however stale. Confirmed
+      # live: 61 of 76 "open" Trivy alerts were exactly this - a
+      # pre-distroless-migration image's findings, still shown open next
+      # to the real (15-finding) current scan under a different category.
       - name: Upload Trivy scan results
         uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         if: always() && hashFiles('trivy-results.sarif') != ''
         with:
           sarif_file: trivy-results.sarif
+          category: trivy-image-scan
 
   bump-chart-image-tag:
     name: Bump chart image tag
