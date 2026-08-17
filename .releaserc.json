@@ -3,6 +3,27 @@
   "plugins": [
     "@semantic-release/commit-analyzer",
     "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "sh scripts/bump-chart-version.sh \"${nextRelease.version}\" && sed -i \"s|^  imageTag:.*|  imageTag: \\\"${nextRelease.version}\\\"|\" chart/values.yaml"
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": ["chart/Chart.yaml", "chart/values.yaml"],
+        "message": "chore(release): update chart to ${nextRelease.version}\n\n${nextRelease.notes}"
+      }
+    ],
+    [
+      "@semantic-release-plus/docker",
+      {
+        "name": "aodb:release",
+        "registry": "ghcr.io/zznathans",
+        "skipLogin": true
+      }
+    ],
     "@semantic-release/github"
   ]
 }

@@ -1,14 +1,14 @@
 name: Pages
 
 # Publishes api/README.md as a GitHub Pages site living on the same
-# gh-pages branch release.yml's publish-chart job already manages (Helm
-# chart index under charts/). Deliberately its own workflow, not a step
-# tacked onto that release job: publish-chart only runs when
-# semantic-release actually cuts a release, and docs-only commits
-# (conventional-commits type "docs") never do - so a docs-only change
-# would otherwise never make it onto the site. The concurrency group
-# below is shared with that job so the two never push to gh-pages at the
-# same time.
+# gh-pages branch chart-publish.yml's publish-gh-pages job already
+# manages (Helm chart index under charts/). Deliberately its own
+# workflow, not a step tacked onto that job: chart-publish.yml only fires
+# when chart/** changes, and docs-only commits (conventional-commits
+# type "docs") never touch that path - so a docs-only change would
+# otherwise never make it onto the site. The concurrency group below is
+# shared with that job so the two never push to gh-pages at the same
+# time.
 on:
   push:
     branches: [main]
@@ -40,7 +40,7 @@ jobs:
           git fetch origin gh-pages
           git worktree add /tmp/gh-pages origin/gh-pages
 
-          # charts/ is release.yml's publish-chart job's own state (the
+          # charts/ is chart-publish.yml's publish-gh-pages job's own state (the
           # packaged charts themselves are GitHub Release assets, not
           # committed here) - everything else on this branch is the
           # curated docs site, safe to clear and replace below.

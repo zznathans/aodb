@@ -13,15 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     name: Delete old test images
     steps:
-      # Reuses the aodb-release-bot GitHub App (APP_ID/APP_PRIVATE_KEY)
-      # rather than a separate PAT - the only remaining use of this App
-      # anywhere in the repo (release.yml and friends all moved to plain
-      # GITHUB_TOKEN once nothing depended on the anti-recursion
-      # workaround anymore). Needs the App's permissions extended to
-      # include Packages: write, which can only be done via the App's own
-      # settings page (no API for editing an existing App's permission
-      # set) - GITHUB_TOKEN can't get delete:packages scope regardless of
-      # declared permissions, a hard GitHub limitation.
+      # Reuses the aodb-release-bot GitHub App (APP_ID/APP_PRIVATE_KEY) -
+      # release.yml also authenticates as this App again now (its
+      # @semantic-release/git push to main needs a ruleset bypass a plain
+      # GITHUB_TOKEN doesn't have), so it's no longer this workflow's sole
+      # use. Needs the App's permissions extended to include Packages:
+      # write, which can only be done via the App's own settings page (no
+      # API for editing an existing App's permission set) - GITHUB_TOKEN
+      # can't get delete:packages scope regardless of declared
+      # permissions, a hard GitHub limitation.
       - name: Generate a token
         id: generate-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
