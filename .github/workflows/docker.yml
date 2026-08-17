@@ -1,31 +1,44 @@
-name: Docker CI
+name: Docker
 
-# Build-and-scan verification only -- never publishes. Actual publishing
-# to ghcr.io happens from release.yml's build/merge-and-scan jobs, in the
-# same workflow run as the semantic-release step that cuts the version
-# tag. There's no "latest floating on main" image.
-#
-# No path filter, even though this only really needs to run when api/
-# changes: this job's own name is a required status check in the branch
-# ruleset, and a required check that never runs (because a PR only
-# touched, say, chart/**) leaves GitHub treating it as permanently
-# pending - blocking merge even with every other check green. The build
-# itself is cheap, so running it on every PR is worth it to keep that
-# check meaningful (matches aomarket-bot's docker.yml, which never had a
-# path filter for the same reason).
+# Build-only verification -- never pushes an image. Actual publishing
+# happens inline in release.yml's own job, via the
+# @semantic-release-plus/docker plugin. Push to any branch except main,
+# and pull_request; the check-pr job skips the push-triggered run once a
+# PR is open on that branch, since pull_request already covers the same
+# commit. Not a required check, so (like deps.yaml) it's also safe to
+# path-filter to only what actually affects the built image.
 on:
+  push:
+    branches-ignore: [main]
+    paths: &docker-paths
+      - "api/**"
   pull_request:
-
-concurrency:
-  group: docker-ci-${{ github.ref }}
-  cancel-in-progress: true
+    paths: *docker-paths
 
 permissions:
   contents: read
 
 jobs:
+  check-pr:
+    name: Check for open PR
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      has_open_pr: ${{ steps.check.outputs.has_open_pr }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          count=$(gh pr list --repo "${{ github.repository }}" --head "${{ github.ref_name }}" --state open --json number --jq 'length')
+          echo "has_open_pr=$([ "$count" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
   build:
-    name: Build and Scan (verification only)
+    name: Build
+    needs: check-pr
+    if: always() && (github.event_name == 'pull_request' || needs.check-pr.outputs.has_open_pr == 'false')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -33,8 +46,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+      - uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
 
       - name: Build image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
@@ -42,20 +54,20 @@ jobs:
           context: ./api
           push: false
           load: true
-          tags: aodb:pr-${{ github.event.pull_request.number }}
+          tags: aodb:verify
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Two separate scans rather than one gating on `format: sarif` - see
-      # release.yml's identical comment: the sarif+exit-code combination in
-      # this trivy-action version was observed to fail the step spuriously
-      # even when the produced SARIF had zero results, both here and in
-      # aomarket-bot's equivalent workflow (confirmed live on that
-      # workflow's own first real PR run).
+      # Two separate scans rather than one gating on `format: sarif` - the
+      # sarif+exit-code combination in this trivy-action version was
+      # observed to fail the step spuriously even when the produced SARIF
+      # had zero results, both here and in aomarket-bot's equivalent
+      # workflow (confirmed live on that workflow's own first real PR
+      # run).
       - name: Scan image for vulnerabilities (fails the build on CRITICAL/HIGH)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: aodb:pr-${{ github.event.pull_request.number }}
+          image-ref: aodb:verify
           format: table
           exit-code: "1"
           ignore-unfixed: true
@@ -66,7 +78,7 @@ jobs:
         if: always()
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          image-ref: aodb:pr-${{ github.event.pull_request.number }}
+          image-ref: aodb:verify
           format: sarif
           output: trivy-results.sarif
           exit-code: "0"

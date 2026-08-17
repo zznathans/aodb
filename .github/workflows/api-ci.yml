@@ -1,21 +1,49 @@
 name: API CI
 
-# pull_request only, deliberately no push[main]: main's ruleset already
-# requires this to be up-to-date and green before allowing merge
-# (strict_required_status_checks_policy), so re-running it again on the
-# post-merge push to main would just re-verify code that already passed.
+# Push to any branch except main (so work-in-progress branches get
+# feedback before a PR even exists), and pull_request. Deliberately no
+# push[main]: main's ruleset already requires this to be up-to-date and
+# green before allowing merge (strict_required_status_checks_policy), so
+# re-running it again on the post-merge push to main would just re-verify
+# code that already passed.
 on:
+  push:
+    branches-ignore: [main]
   pull_request:
 
 # Least-privilege default; each job below grants itself only what it actually needs.
 permissions: {}
 
 jobs:
+  # Once a branch has an open PR, pull_request already covers every push
+  # to it -- without this, the plain push trigger above would fire a
+  # second, redundant run for the exact same commit. Only runs for the
+  # push event (a pull_request run always proceeds straight to the jobs
+  # below); asks the GitHub API whether the pushed branch has an open PR
+  # and, if so, lets those jobs report nothing further.
+  check-pr:
+    name: Check for open PR
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      has_open_pr: ${{ steps.check.outputs.has_open_pr }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          count=$(gh pr list --repo "${{ github.repository }}" --head "${{ github.ref_name }}" --state open --json number --jq 'length')
+          echo "has_open_pr=$([ "$count" -gt 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
   # Still runs unconditionally (not a workflow-level `on.paths` filter) so
   # this required check never sits pending forever on a PR that doesn't
   # touch api/ - it just does nothing (fast) via the job-level `if:` below.
   changes:
     name: Detect changed paths
+    needs: check-pr
+    if: always() && (github.event_name == 'pull_request' || needs.check-pr.outputs.has_open_pr == 'false')
     runs-on: ubuntu-latest
     permissions:
       contents: read
