@@ -40,6 +40,13 @@ jobs:
   scan:
     name: Scan rendered manifests
     runs-on: ubuntu-latest
+    # Skips push/pull_request events from the release bot - its downstream
+    # PRs (image-tag bump, Chart.yaml sync) touch chart/** but never
+    # change the rendered manifests' actual security posture, so scanning
+    # them on top of the real PR that already triggered a scan is pure
+    # noise. Scoped to push/pull_request specifically (not the schedule
+    # trigger, which has no actor tied to a particular commit).
+    if: github.event_name == 'schedule' || github.actor != 'aodb-release[bot]'
     permissions:
       actions: read
       contents: read
