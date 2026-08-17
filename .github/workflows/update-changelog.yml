@@ -23,6 +23,7 @@ permissions: {}
 
 jobs:
   update-changelog:
+    name: Update CHANGELOG
     runs-on: ubuntu-latest
     permissions: {}
     env:

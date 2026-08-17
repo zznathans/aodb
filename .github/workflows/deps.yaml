@@ -1,8 +1,8 @@
-name: 'Dependency Review'
+name: Dependency Review
 
-# Not a required check (see the CI workflow for why that matters), so a
-# plain workflow-level path filter is safe here - only worth running when
-# a dependency manifest actually changed.
+# Not a required check (see api-ci.yml/chart-ci.yml for why that matters
+# for required checks), so a plain workflow-level path filter is safe here
+# - only worth running when a dependency manifest actually changed.
 on:
   pull_request:
     paths:
@@ -19,6 +19,7 @@ permissions:
 
 jobs:
   dependency-review:
+    name: Dependency review
     runs-on: ubuntu-latest
     steps:
       - name: 'Checkout Repository'
