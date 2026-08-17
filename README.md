@@ -47,7 +47,7 @@ deploying it.
   packages stripped, every Python dependency hash-verified at install
   time.
 - **Optional analytics** - an opt-in client-side snippet on the browse UI
-  and `/api/docs` (nothing ships by default), and an opt-in
+  and `/api` (nothing ships by default), and an opt-in
   [api-analytics](https://github.com/tom-draper/api-analytics) middleware
   for request-level metrics (never enabled unless an API key is
   configured; client IPs are never sent).
