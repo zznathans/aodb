@@ -35,7 +35,7 @@ underlying data only changes on a dump reload.
 Everything under `/api` - a normal JSON API for item/nano data, separate
 from the browse UI above so the two never collide over the same paths
 (e.g. `/items` is the browse UI, `/api/items` is the JSON endpoint).
-Swagger UI is at `/api/docs`; machine-readable spec is at
+Swagger UI is at `/api`; machine-readable spec is at
 `/api/openapi.json` (`/healthz` is intentionally excluded from both).
 `/.well-known/api-catalog` advertises both per
 [RFC 9727](https://www.rfc-editor.org/rfc/rfc9727) - a standard
@@ -109,7 +109,7 @@ from a newer dump version aren't cleaned up automatically.
 Both mechanisms below ship disabled by default - deploying this repo
 as-is sends no analytics anywhere.
 
-`/api/docs` and every browse UI page will include the raw contents of
+`/api` and every browse UI page will include the raw contents of
 `app/templates/_analytics.html` if that file exists (e.g. a Cloudflare
 Web Analytics beacon, a Google Analytics tag - see
 `app/templates/_analytics.html.example` for the expected shape). That
