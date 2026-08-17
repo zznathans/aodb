@@ -152,7 +152,7 @@ app.include_router(web_router)
 app.include_router(sitemap_router)
 
 
-@app.get("/api/docs", include_in_schema=False)
+@app.get("/api", include_in_schema=False)
 def docs() -> HTMLResponse:
     html = get_swagger_ui_html(openapi_url=app.openapi_url, title=f"{app.title} - Swagger UI").body.decode()
     return HTMLResponse(html.replace("</head>", f"{analytics_snippet()}</head>"))
@@ -187,7 +187,7 @@ def api_catalog(request: Request) -> JSONResponse:
             {
                 "anchor": base,
                 "service-desc": [{"href": f"{base}/api/openapi.json", "type": "application/vnd.oas.openapi+json"}],
-                "service-doc": [{"href": f"{base}/api/docs", "type": "text/html"}],
+                "service-doc": [{"href": f"{base}/api", "type": "text/html"}],
             }
         ]
     }

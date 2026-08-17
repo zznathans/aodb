@@ -100,7 +100,7 @@ aodbApi:
   extraEnv: []
 
   # -- Raw HTML for client-side analytics (e.g. a Cloudflare beacon or Google Analytics
-  # snippet), included verbatim on /api/docs and every browse UI page - see the app's own
+  # snippet), included verbatim on /api and every browse UI page - see the app's own
   # README for app/templates/_analytics.html. That file is gitignored and never part of the
   # published image, so it can't just be baked in; setting this instead renders it into a
   # ConfigMap and mounts it over that path in the pod. Leave unset (the default) for no

@@ -101,7 +101,7 @@ async def test_docs_includes_no_analytics_by_default(client):
     # This repo used to hardcode real tracking IDs here - a stock
     # deployment (no app/templates/_analytics.html supplied) must ship
     # with none at all. See test_web.py for the "file present" case.
-    resp = client.get("/api/docs")
+    resp = client.get("/api")
 
     assert resp.status_code == 200
     assert "cloudflareinsights.com" not in resp.text
@@ -112,7 +112,7 @@ async def test_docs_includes_analytics_partial_when_present(client):
     assert not _ANALYTICS_PARTIAL.exists()
     _ANALYTICS_PARTIAL.write_text("<script>window.__test_analytics = true;</script>")
     try:
-        resp = client.get("/api/docs")
+        resp = client.get("/api")
         assert "window.__test_analytics = true;" in resp.text
     finally:
         _ANALYTICS_PARTIAL.unlink()
@@ -129,4 +129,4 @@ async def test_api_catalog_describes_this_api(client):
     entry = body["linkset"][0]
     assert entry["anchor"] == "http://testserver"
     assert entry["service-desc"][0]["href"] == "http://testserver/api/openapi.json"
-    assert entry["service-doc"][0]["href"] == "http://testserver/api/docs"
+    assert entry["service-doc"][0]["href"] == "http://testserver/api"
