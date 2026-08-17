@@ -1,6 +1,0 @@
-{
-  "name": "app",
-  "version": "0.0.0",
-  "private": true,
-  "description": "Version bookkeeping manifest for multi-semantic-release - not a real npm package. Unscoped name deliberately: multi-semantic-release always tags as ${name}@${version} (ignores tagFormat), so this is what produces app@X.Y.Z tags."
-}

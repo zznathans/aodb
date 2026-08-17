@@ -13,11 +13,15 @@ jobs:
     runs-on: ubuntu-latest
     name: Delete old test images
     steps:
-      # Reuses the aodb-release-bot GitHub App (APP_ID/APP_PRIVATE_KEY,
-      # also used for bot-opened PRs - see docker.yml) rather than a
-      # separate PAT. Needs the App's permissions extended to include
-      # Packages: write, which can only be done via the App's own settings
-      # page (no API for editing an existing App's permission set).
+      # Reuses the aodb-release-bot GitHub App (APP_ID/APP_PRIVATE_KEY)
+      # rather than a separate PAT - the only remaining use of this App
+      # anywhere in the repo (release.yml and friends all moved to plain
+      # GITHUB_TOKEN once nothing depended on the anti-recursion
+      # workaround anymore). Needs the App's permissions extended to
+      # include Packages: write, which can only be done via the App's own
+      # settings page (no API for editing an existing App's permission
+      # set) - GITHUB_TOKEN can't get delete:packages scope regardless of
+      # declared permissions, a hard GitHub limitation.
       - name: Generate a token
         id: generate-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
@@ -36,7 +40,12 @@ jobs:
           token: ${{ steps.generate-token.outputs.token }}
           image-names: "aodb"
           dry-run: false
-          keep-n-most-recent: 30
+          # Bumped from 30: every release now also publishes a
+          # docker-slim variant (regular + slim, each as both the exact
+          # version and the rolling major.minor - 4 tags/release instead
+          # of 2), so the same number covers less release history than
+          # before.
+          keep-n-most-recent: 60
           # Required by the action with no default - set far in the past so
           # keep-n-most-recent above is the only thing that actually prunes;
           # age on its own isn't a signal we care about here.

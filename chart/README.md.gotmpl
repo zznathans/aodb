@@ -39,9 +39,10 @@ helm lint chart --strict \
 helm unittest chart
 ```
 
-Each `chart@X.Y.Z` GitHub Release gets the packaged `.tgz` attached as a
-release asset and published two ways (see
-`.github/workflows/helm-release.yml`):
+Every `vX.Y.Z` release (shared with the app - see the top-level README's
+"Releases" section) gets the packaged `.tgz` attached as a release asset
+and published two ways (see `.github/workflows/release.yml`'s
+`publish-chart` job):
 
 As an OCI artifact at `oci://ghcr.io/zznathans/aodb/charts` - same
 registry/namespace as the app image, no `helm repo add` needed, the

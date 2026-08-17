@@ -2,10 +2,10 @@
 
 | | |
 |---|---|
-| **CI** | [![API CI](https://github.com/zznathans/aodb/actions/workflows/api-ci.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/api-ci.yml) [![Chart CI](https://github.com/zznathans/aodb/actions/workflows/chart-ci.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/chart-ci.yml) |
+| **CI** | [![API CI](https://github.com/zznathans/aodb/actions/workflows/api-ci.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/api-ci.yml) [![Chart CI](https://github.com/zznathans/aodb/actions/workflows/chart-ci.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/chart-ci.yml) [![Docker CI](https://github.com/zznathans/aodb/actions/workflows/docker-ci.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/docker-ci.yml) |
 | **Tests** | [![Coverage Status](https://coveralls.io/repos/github/zznathans/aodb/badge.svg?branch=main)](https://coveralls.io/github/zznathans/aodb?branch=main) |
 | **Security** | [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/zznathans/aodb/badge)](https://scorecard.dev/viewer/?uri=github.com/zznathans/aodb) |
-| **Version** | [![API](https://img.shields.io/github/v/tag/zznathans/aodb?filter=app@*&label=api&sort=semver)](https://github.com/zznathans/aodb/releases?q=app%40) [![Chart](https://img.shields.io/github/v/tag/zznathans/aodb?filter=chart@*&label=chart&sort=semver)](https://github.com/zznathans/aodb/releases?q=chart%40) |
+| **Version** | [![Release](https://github.com/zznathans/aodb/actions/workflows/release.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/release.yml) [![Latest](https://img.shields.io/github/v/tag/zznathans/aodb?sort=semver)](https://github.com/zznathans/aodb/releases) |
 | **License** | [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE) |
 
 A FastAPI service that parses the official Anarchy Online item dump into
@@ -54,27 +54,30 @@ deploying it.
 
 ## Releases
 
-The app and chart version independently, since a change to one rarely
-implies a change to the other:
+The app and chart share one version number - a fix/feat commit anywhere in
+the repo cuts one `vX.Y.Z` tag/release covering both, rather than
+versioning app/chart independently. Every release:
 
-- App releases are tagged `app@X.Y.Z` and publish a multi-arch (amd64 +
-  arm64) container image to `ghcr.io/zznathans/aodb`.
-- Chart releases are tagged `chart@X.Y.Z`, attach the packaged `.tgz` as a
-  release asset, and publish it two ways: as an OCI artifact at
+- Publishes a multi-arch (amd64 + arm64) container image to
+  `ghcr.io/zznathans/aodb`, tagged `X.Y.Z` and `X.Y` - plus a smaller
+  `docker-slim`'d variant under `X.Y.Z-slim`/`X.Y-slim` (see the chart's
+  `image.variant` value; only switch to it if you've validated it for your
+  workload, docker-slim strips anything not exercised during its dynamic
+  analysis pass).
+- Packages and publishes the chart, attaching the `.tgz` as a release
+  asset and publishing it two ways: as an OCI artifact at
   `oci://ghcr.io/zznathans/aodb/charts` (`helm install aodb
   oci://ghcr.io/zznathans/aodb/charts/aodb --version X.Y.Z`, no `helm repo
   add` needed - the recommended path) and to a classic Helm chart index at
   https://zznathans.github.io/aodb/charts/ (`helm repo add aodb
-  https://zznathans.github.io/aodb/charts`), kept around for third-party tooling
-  that doesn't speak OCI registries yet.
+  https://zznathans.github.io/aodb/charts`), kept around for third-party
+  tooling that doesn't speak OCI registries yet. `chart/values.yaml`'s
+  default image tag always matches the release version - the app and
+  chart can never drift out of sync since they're the same number.
 
-An app release automatically opens a PR bumping the chart's default image
-tag (`chart/values.yaml`) to match, so the chart stays deployable with the
-latest image without a chart release being required just for that.
-
-`gh-pages` hosts the app's README as a browsable doc site (synced on every
-app release) alongside the chart index above, at a different path on the
-same branch/domain.
+`gh-pages` hosts the app's README as a browsable doc site (synced whenever
+`api/README.md` changes, not just on a release) alongside the chart index
+above, at a different path on the same branch/domain.
 
 ## Development
 

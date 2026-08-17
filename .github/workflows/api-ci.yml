@@ -30,6 +30,37 @@ jobs:
             api:
               - 'api/**'
 
+  # Matches aomarket-bot's ci.yml lockfile-check job, adapted: aodb's
+  # requirements*.txt are compiled from requirements*.in via pip-tools'
+  # pip-compile (not uv pip compile from pyproject.toml, which is what
+  # aomarket-bot does - it has no requirements*.in files, its deps are
+  # declared directly in pyproject.toml). The committed files' own header
+  # comment records the exact `pip-compile --generate-hashes
+  # --output-file=... ...` invocation used, so regenerating with anything
+  # else (uv's compiler included) would show a spurious diff on that
+  # comment line alone even if the resolved dependency set matches.
+  lockfile-check:
+    name: requirements*.txt match requirements*.in
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.14"
+      - run: pip install pip-tools
+      - name: Regenerate and diff against committed lockfiles
+        working-directory: api
+        run: |
+          set -euo pipefail
+          cp requirements.txt /tmp/requirements.txt.committed
+          cp requirements-dev.txt /tmp/requirements-dev.txt.committed
+          pip-compile --generate-hashes --output-file=requirements.txt requirements.in
+          pip-compile --generate-hashes --output-file=requirements-dev.txt requirements-dev.in
+          diff -u /tmp/requirements.txt.committed requirements.txt
+          diff -u /tmp/requirements-dev.txt.committed requirements-dev.txt
+
   lint:
     name: Lint
     needs: changes
