@@ -78,7 +78,13 @@ jobs:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           CHANGELOG_PATH: ${{ steps.target.outputs.path }}
         run: |
-          if git diff --quiet -- "$CHANGELOG_PATH"; then
+          # `git diff` never shows untracked files, so on a brand-new
+          # CHANGELOG.md (both api/ and chart/'s have never existed) this
+          # always read as "no diff" and silently skipped every run,
+          # forever - stage first and diff the index instead, which
+          # correctly reports new files too.
+          git add "$CHANGELOG_PATH"
+          if git diff --cached --quiet -- "$CHANGELOG_PATH"; then
             echo "$CHANGELOG_PATH already up to date, nothing to do."
             exit 0
           fi
@@ -88,7 +94,6 @@ jobs:
 
           branch="changelog-${RELEASE_TAG}"
           git checkout -b "$branch"
-          git add "$CHANGELOG_PATH"
           git commit -m "docs(changelog): add ${RELEASE_TAG} release notes"
           git push origin "$branch"
 
