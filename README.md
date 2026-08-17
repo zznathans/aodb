@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **CI** | [![API CI](https://github.com/zznathans/aodb/actions/workflows/api-ci.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/api-ci.yml) [![Chart CI](https://github.com/zznathans/aodb/actions/workflows/chart-ci.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/chart-ci.yml) |
-| **Quality** | [![Coverage Status](https://coveralls.io/repos/github/zznathans/aodb/badge.svg?branch=main)](https://coveralls.io/github/zznathans/aodb?branch=main) |
+| **Tests** | [![Coverage Status](https://coveralls.io/repos/github/zznathans/aodb/badge.svg?branch=main)](https://coveralls.io/github/zznathans/aodb?branch=main) |
 | **Security** | [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/zznathans/aodb/badge)](https://scorecard.dev/viewer/?uri=github.com/zznathans/aodb) |
 | **Version** | [![API](https://img.shields.io/github/v/tag/zznathans/aodb?filter=app@*&label=api&sort=semver)](https://github.com/zznathans/aodb/releases?q=app%40) [![Chart](https://img.shields.io/github/v/tag/zznathans/aodb?filter=chart@*&label=chart&sort=semver)](https://github.com/zznathans/aodb/releases?q=chart%40) |
 | **License** | [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE) |
