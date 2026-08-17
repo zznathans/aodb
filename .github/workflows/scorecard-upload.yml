@@ -8,7 +8,7 @@ name: Upload Scorecard SARIF
 
 on:
   workflow_run:
-    workflows: ["Scorecard supply-chain security"]
+    workflows: ["Scorecard Supply-Chain Security"]
     types: [completed]
 
 # Least-privilege default; the upload job below grants itself only what

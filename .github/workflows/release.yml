@@ -18,27 +18,39 @@ name: Release
 # GitHub's anti-recursion rule - events created *using* GITHUB_TOKEN
 # (including the release this job creates) never trigger other workflows'
 # `release: published` listeners. workflow_dispatch is explicitly exempted
-# from that rule, so instead of relying on the release event, this job
-# diffs tags before/after the release run and explicitly dispatches
-# docker.yml / helm-release.yml / pages.yml / update-changelog.yml for
+# from that rule, so instead of relying on the release event, the release
+# job below diffs tags before/after the run and the dispatch job explicitly
+# fires docker.yml / helm-release.yml / pages.yml / update-changelog.yml for
 # whichever tag(s) actually got created.
+#
+# Triggers directly on push to main rather than watching API CI/Chart CI
+# finish (as it used to watch one combined "CI" workflow before they were
+# split): main's ruleset already requires every check to be green and
+# up-to-date before a merge is allowed onto it
+# (strict_required_status_checks_policy) - branch protection *is* the gate,
+# so a push landing on main has already passed everything that matters.
 on:
-  workflow_run:
-    workflows: ["CI"]
+  push:
     branches: [main]
-    types: [completed]
 
 permissions:
   contents: write
   actions: write
 
 jobs:
+  # Split from the dispatch step below (which used to live in this same
+  # job) specifically so a failed dispatch can be re-run on its own: if
+  # "Re-run failed jobs" only had one job to work with, re-running it would
+  # redo the tag diff from scratch, and by then the tags this run just
+  # created are no longer "new" - the dispatch would silently never fire.
+  # Splitting means a re-run reuses this job's already-computed `tags`
+  # output and only re-executes the dispatch.
   release:
-    name: Multi Semantic Release
+    name: Run multi-semantic-release
     runs-on: ubuntu-latest
-    if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      !contains(github.event.workflow_run.head_commit.message, '[skip ci]')
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    outputs:
+      tags: ${{ steps.new-tags.outputs.tags }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -57,32 +69,51 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Dispatch downstream workflows for any newly-created tags
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Compute newly-created tags
+        id: new-tags
         run: |
           git tag --list > /tmp/tags-after.txt
           new_tags=$(comm -13 /tmp/tags-before.txt /tmp/tags-after.txt)
+          {
+            echo "tags<<EOF"
+            echo "$new_tags"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
 
-          if [ -z "$new_tags" ]; then
+  dispatch:
+    name: Dispatch downstream workflows
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    env:
+      NEW_TAGS: ${{ needs.release.outputs.tags }}
+    steps:
+      - name: Dispatch downstream workflows for any newly-created tags
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -z "$NEW_TAGS" ]; then
             echo "No new release - nothing to dispatch."
             exit 0
           fi
 
-          for tag in $new_tags; do
+          while IFS= read -r tag; do
+            [ -z "$tag" ] && continue
             echo "New tag: $tag"
             case "$tag" in
               app@*)
-                gh workflow run docker.yml -f tag="$tag"
-                gh workflow run pages.yml -f tag="$tag"
-                gh workflow run update-changelog.yml -f tag="$tag"
+                gh workflow run docker.yml -f tag="$tag" --repo "$REPO"
+                gh workflow run pages.yml -f tag="$tag" --repo "$REPO"
+                gh workflow run update-changelog.yml -f tag="$tag" --repo "$REPO"
                 ;;
               chart@*)
-                gh workflow run helm-release.yml -f tag="$tag"
-                gh workflow run update-changelog.yml -f tag="$tag"
+                gh workflow run helm-release.yml -f tag="$tag" --repo "$REPO"
+                gh workflow run update-changelog.yml -f tag="$tag" --repo "$REPO"
                 ;;
               *)
                 echo "Unrecognized tag format, not dispatching anything: $tag" >&2
                 ;;
             esac
-          done
+          done <<< "$NEW_TAGS"

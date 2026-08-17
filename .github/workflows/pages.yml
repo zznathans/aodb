@@ -29,6 +29,7 @@ permissions: {}
 
 jobs:
   sync-readmes:
+    name: Sync READMEs
     runs-on: ubuntu-latest
     if: startsWith(github.event.inputs.tag || github.event.release.tag_name, 'app@')
     permissions:

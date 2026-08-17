@@ -1,0 +1,76 @@
+name: Chart CI
+
+# pull_request only, deliberately no push[main]: main's ruleset already
+# requires this to be up-to-date and green before allowing merge
+# (strict_required_status_checks_policy), so re-running it again on the
+# post-merge push to main would just re-verify code that already passed.
+on:
+  pull_request:
+
+# Least-privilege default; each job below grants itself only what it actually needs.
+permissions: {}
+
+jobs:
+  # Still runs unconditionally (not a workflow-level `on.paths` filter) so
+  # this required check never sits pending forever on a PR that doesn't
+  # touch chart/ - it just does nothing (fast) via the job-level `if:` below.
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      chart: ${{ steps.filter.outputs.chart }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
+        id: filter
+        with:
+          filters: |
+            chart:
+              - 'chart/**'
+              - '.yamllint.yaml'
+
+  yamllint:
+    name: Yamllint
+    needs: changes
+    if: needs.changes.outputs.chart == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+      - run: pip install --require-hashes -r requirements-ci.txt
+      - run: yamllint -c .yamllint.yaml chart
+
+  helm-lint:
+    name: Helm lint
+    needs: changes
+    if: needs.changes.outputs.chart == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+        with:
+          version: "3.17.0"
+      - name: Run helm lint
+        run: |
+          helm lint chart --strict \
+            --set aodbApi.dumpUrl=https://example.invalid/dump.xml.zip \
+            --set aodbApi.redisUrl=redis://example-redis:6379/0
+
+  helm-unittest:
+    name: Helm unit tests
+    needs: [changes, helm-lint]
+    if: needs.changes.outputs.chart == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+        with:
+          version: "3.17.0"
+      - name: Install helm-unittest plugin
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest --version v0.6.2
+      - name: Run helm unit tests
+        run: helm unittest chart
