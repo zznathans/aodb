@@ -17,7 +17,7 @@ aodbApi:
     # installed in the target cluster. Off by default: enabling this for an existing
     # installation that already points aodbApi.redisUrl at its own Redis would otherwise start
     # deploying an unwanted, unused second Redis instance.
-    enabled: false
+    enabled: false 
 
     # -- maxmemory directive for the bundled Redis instance. Needs headroom below
     # aodbApi.redis.resources.limits.memory - too tight a gap caused real OOMKills in
