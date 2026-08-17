@@ -71,5 +71,13 @@ jobs:
           # gh-pages branch root -- see cr.yaml's own comment for why
           # that's a real problem here, not just a URL mismatch.
           config: cr.yaml
+          # A single release lands two chart/** pushes on main in quick
+          # succession -- the merge commit itself (if it happened to
+          # touch chart/**, e.g. a doc fix) and release.yml's own
+          # version-bump commit right after. Both can trigger this
+          # workflow for what's effectively the same chart version;
+          # without this, the second run 422s trying to create a GitHub
+          # release whose tag already exists instead of just no-oping.
+          skip_existing: true
         env:
           CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
