@@ -34,7 +34,7 @@ aodbApi:
       # -- Container image repository for the bundled Redis instance.
       repository: quay.io/opstree/redis
       # -- Container image tag for the bundled Redis instance.
-      tag: latest
+      tag: v8.6.1
       # -- Image pull policy for the bundled Redis instance.
       pullPolicy: IfNotPresent
 
@@ -58,7 +58,7 @@ aodbApi:
         # -- Container image repository for the redis-exporter sidecar.
         repository: quay.io/opstree/redis-exporter
         # -- Container image tag for the redis-exporter sidecar.
-        tag: latest
+        tag: v1.84.0
         # -- Image pull policy for the redis-exporter sidecar.
         pullPolicy: Always
       # -- Resource requests and limits for the redis-exporter sidecar container.
