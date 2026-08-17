@@ -49,7 +49,7 @@ jobs:
       # @semantic-release-plus/docker (see .releaserc.json) doesn't build
       # the image itself -- it expects an already-built, locally-tagged
       # image (hence --load) and re-tags/pushes it once the release
-      # version is known. cache-from reuses whatever layers docker-ci.yml's
+      # version is known. cache-from reuses whatever layers docker.yml's
       # PR-time build-verification job already left in the GHA cache for
       # this same commit, so this is usually a re-assembly of
       # already-built layers rather than a from-scratch build. Single-arch
