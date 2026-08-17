@@ -75,7 +75,12 @@ jobs:
       # status check, so a coverage regression never blocks merging.
       # Doesn't need a repo token: defaults to github-token: github.token
       # and auto-creates the repo on Coveralls on first post.
+      # continue-on-error because the action's own default (fail-on-error:
+      # true) means a Coveralls-side outage - not our data - would
+      # otherwise fail this job and cascade into skipping every job after
+      # it, including blocking the Release workflow entirely.
       - name: Coveralls
+        continue-on-error: true
         uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2.3.8
         with:
           file: api/coverage.lcov
