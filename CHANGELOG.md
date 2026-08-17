@@ -1,0 +1,77 @@
+## v1.0.0 (2026-08-17)
+
+# 1.0.0 (2026-08-17)
+
+
+### Bug Fixes
+
+* **api:** document analytics path exclusions in README ([baaf180](https://github.com/zznathans/aodb/commit/baaf18065375a7c1b1d458b01198c8e28abc99c1)), closes [#89](https://github.com/zznathans/aodb/issues/89)
+* **api:** exclude healthchecks and infra noise from api-analytics logging ([0800c96](https://github.com/zznathans/aodb/commit/0800c96c8850cedc098dc320f6759a9246715e3d))
+* **api:** pin the distroless final-stage base image to a digest ([0614715](https://github.com/zznathans/aodb/commit/061471501d92ae69834aff38c287ad3515385198))
+* **api:** silence api_analytics' hardcoded DEBUG request logging ([1b1c7ab](https://github.com/zznathans/aodb/commit/1b1c7ab3afea6905d9ca0521e3f4be54a40b9aa2))
+* **api:** stop shipping hardcoded analytics tracking IDs in public repo ([7c88e20](https://github.com/zznathans/aodb/commit/7c88e200c6406dc7c1b7ebc93cf60c64c910f284))
+* **chart:** address Kubesec-flagged hardening findings on the Deployment ([067a036](https://github.com/zznathans/aodb/commit/067a036bebe2da6db414d3ea270603b4f5e435b8))
+* **chart:** bump image to app@1.0.2 ([e34038c](https://github.com/zznathans/aodb/commit/e34038cb1959485f6a5f3c5573fcc061adc37ab6))
+* **chart:** bump image to app@1.0.4 ([5b0b08f](https://github.com/zznathans/aodb/commit/5b0b08f88742305348d5586d3d718ca55ba1c0b0))
+* **chart:** bump image to app@1.1.0 ([332fa30](https://github.com/zznathans/aodb/commit/332fa30a786fb181da624ec3b968300da47a060a))
+* **chart:** bump image to app@1.2.0 ([8d1ad09](https://github.com/zznathans/aodb/commit/8d1ad09729b6c9153c3e3a80d63af87742dcd026))
+* **chart:** bump image to app@1.2.1 ([bc72c1b](https://github.com/zznathans/aodb/commit/bc72c1ba9cbd0003488d504c7e3d226dcaa4fcfb))
+* **chart:** bump image to app@1.3.0 ([c7563b2](https://github.com/zznathans/aodb/commit/c7563b2ad73cdfc41ffc1a6ef2efaa426d064619))
+* **chart:** bump image to app@1.3.1 ([361be3e](https://github.com/zznathans/aodb/commit/361be3e652cd835f011d99dcae931c1d2f0dc2b5))
+* **chart:** bump image to app@1.4.0 ([75fb619](https://github.com/zznathans/aodb/commit/75fb6193134f533f61bf45adab390f47c75f6f7b))
+* **chart:** bump image to app@1.4.1 ([e1874af](https://github.com/zznathans/aodb/commit/e1874af756d37eed26b3e9284fb9569cb81bfa08))
+* **chart:** bump image to app@1.5.0 ([2ae1278](https://github.com/zznathans/aodb/commit/2ae12780a7b7c898404c0b67487bff70d8b5ad0e))
+* **chart:** bump image to app@1.5.2 ([ee6b90d](https://github.com/zznathans/aodb/commit/ee6b90d675467e23d59832a3dc668a566655b403))
+* **chart:** bump image to app@1.5.3 ([5656667](https://github.com/zznathans/aodb/commit/565666700d12b974b01262b262fb915e9c26e027))
+* **chart:** give liveness probe enough headroom, bump memory limit ([076b7bf](https://github.com/zznathans/aodb/commit/076b7bf3484121f82020d54907fd9c2317b062ae))
+* **chart:** give the loading pod enough liveness headroom for the trigram index build ([00b65be](https://github.com/zznathans/aodb/commit/00b65bee54f9776861c1626ce6d4aae6c3a06a18)), closes [#73](https://github.com/zznathans/aodb/issues/73)
+* **chart:** pin bundled Redis and redis-exporter image tags ([97282f2](https://github.com/zznathans/aodb/commit/97282f2496950ebc93fb2c53486968d42795c7fa))
+* **chart:** sync Chart.yaml to chart@1.5.2 ([3c4cd98](https://github.com/zznathans/aodb/commit/3c4cd989200def879f9d7cacf03deb00c439b7f8))
+* **ci:** bot-opened auto-merge PRs don't self-resolve a BEHIND branch ([b5e4f2c](https://github.com/zznathans/aodb/commit/b5e4f2ce1f1c42be37371c501cae38994cad4855))
+* **ci:** don't let a Coveralls outage block CI and the release chain ([b5a34e1](https://github.com/zznathans/aodb/commit/b5a34e14dc15b73051dc515cd02300cd48bc66f0))
+* **ci:** drop RELEASE_PAT, chain release workflows via workflow_dispatch ([ab6c45b](https://github.com/zznathans/aodb/commit/ab6c45bc54e37c568e38197bfe337f96d4de073f))
+* **ci:** fix Registry Cleanup workflow's undefined secrets and stale example values ([13a3520](https://github.com/zznathans/aodb/commit/13a352018c46ada3b030b4117fcc552ee58c5397))
+* **ci:** pin the Trivy SARIF category so alerts actually get superseded ([7116149](https://github.com/zznathans/aodb/commit/7116149bcb26651550c4142fcb13d765e64f1309))
+* **ci:** Registry Cleanup account field must be literal "user" for personal accounts ([232463d](https://github.com/zznathans/aodb/commit/232463d54c4083bb72791dafb7acb71df8ab17fa))
+* **ci:** remove BSD-2-Clause from deps.yaml's license deny list ([95798cd](https://github.com/zznathans/aodb/commit/95798cd4ad241ea2e7b4b9118f8c2b9684a44a88)), closes [#29](https://github.com/zznathans/aodb/issues/29)
+* **ci:** set required cut-off input for Registry Cleanup ([e92ef94](https://github.com/zznathans/aodb/commit/e92ef94ebfb3daa74f7c668d9bc87ce58589909b))
+* **ci:** skip Kubesec and Scorecard on release-bot PRs/pushes ([b685f58](https://github.com/zznathans/aodb/commit/b685f585619b870f660454a18b7da50eaf83ab7c))
+* **ci:** trigger docker/helm-release/pages/changelog off any new release, not a custom dispatch ([1264332](https://github.com/zznathans/aodb/commit/1264332dad170c539727bf010b29cba07636a9fb))
+* **ci:** update-changelog's diff check never sees a brand-new file ([1beb3d0](https://github.com/zznathans/aodb/commit/1beb3d04532b67bd5110720c5bff7786a355db1c))
+* **ci:** use full commit SHA for actions/setup-node pin ([c221978](https://github.com/zznathans/aodb/commit/c221978b1fc6bd441f289752ac40de15df981f56))
+* **docs:** refresh api/README.md to match the current app ([1cbf8c5](https://github.com/zznathans/aodb/commit/1cbf8c558b4576665629b23726b4f3f764f6b453))
+* **docs:** repoint README's CI badge at the split workflows ([a60dd20](https://github.com/zznathans/aodb/commit/a60dd20aa4baf5e4d4047925b5b49ac2be439040))
+* **helm:** change chart name ([2b1fd91](https://github.com/zznathans/aodb/commit/2b1fd91148b029e52bef1cc584926b1be17002f1))
+* **helm:** make release-asset upload idempotent ([1ff3821](https://github.com/zznathans/aodb/commit/1ff3821d80d24f6d4e15c4db7b121b556048e4e6))
+* **helm:** stop splitting chart packaging across two jobs ([7ae9318](https://github.com/zznathans/aodb/commit/7ae93183a3bb9845beb160b6fc6d2c79c1f1bcc8)), closes [#pages](https://github.com/zznathans/aodb/issues/pages)
+* **helm:** use the actual GitHub Pages URL for the chart index ([3448211](https://github.com/zznathans/aodb/commit/3448211e9d1e72eb65d88839ab25671b3775086c)), closes [#pages](https://github.com/zznathans/aodb/issues/pages) [#69](https://github.com/zznathans/aodb/issues/69)
+* **load:** stop flushing Redis before every load, skip existing ids ([7525d01](https://github.com/zznathans/aodb/commit/7525d01fd39a3352d93aa6b7a81f8adc6b3a488f))
+* **pages:** use absolute GitHub links in api/README.md, not repo-relative ([bbd985d](https://github.com/zznathans/aodb/commit/bbd985d13191ec2c5d357de0d52fe1bd5bff0701)), closes [#pages](https://github.com/zznathans/aodb/issues/pages)
+* **redis:** disable replication ([67bb036](https://github.com/zznathans/aodb/commit/67bb036e2aee06ca182b7341edf1f6a7abd8c542))
+* **release:** use package names multi-semantic-release will actually tag ([c9171f8](https://github.com/zznathans/aodb/commit/c9171f8cb55c3f58c725b1bfba960d6ea4ebf691))
+* **security:** pin unpinned actions/base image, hash-lock Python deps ([2946bcf](https://github.com/zznathans/aodb/commit/2946bcf9683d4032dd0615fe858a9e6f755f6d72))
+* **security:** strip unused OS packages from the runtime image ([7734946](https://github.com/zznathans/aodb/commit/773494646416cfc2c785ae464f806b0e4c13cc06))
+
+
+### Features
+
+* **api:** log startup/dump-load progress, and make it actually visible ([9fe0f6d](https://github.com/zznathans/aodb/commit/9fe0f6d2e0d13d1758edc671b6b47cb22f0be20c))
+* **chart:** bundle Redis as a toggleable option ([a110657](https://github.com/zznathans/aodb/commit/a110657fdc558ba43290e40b94925e544860d793))
+* **chart:** mount client-side analytics HTML via a chart value ([3151090](https://github.com/zznathans/aodb/commit/31510903fdc6320308fceafed7449dfd0681a77a))
+* **chart:** support podAnnotations, podLabels, and extraEnv ([2278adc](https://github.com/zznathans/aodb/commit/2278adcd183dd264052153e01c4ba8d653ad927f))
+* **ci:** add Kubesec scan of the rendered chart manifests ([df3ecf4](https://github.com/zznathans/aodb/commit/df3ecf4ac65d8002241472c0d8603fc1dcc6f90b))
+* **ci:** auto-enable auto-merge on bot-opened PRs ([0e67033](https://github.com/zznathans/aodb/commit/0e67033b6bc0370a13cc0463ed6138220feca77e)), closes [#19](https://github.com/zznathans/aodb/issues/19)
+* **ci:** report test coverage to Coveralls ([f36d1ec](https://github.com/zznathans/aodb/commit/f36d1ecde91d541aa8d8fef2f6d3c325c1ee9cc7))
+* **ci:** use aodb-release-bot GitHub App token for bot-opened PRs ([617e3e6](https://github.com/zznathans/aodb/commit/617e3e664e8a755672c276239f2eeceab46ec199))
+* **helm:** also publish the chart to a classic gh-pages index ([a1252b4](https://github.com/zznathans/aodb/commit/a1252b490d105b31028db73073c9842cddd1eb04)), closes [#pages](https://github.com/zznathans/aodb/issues/pages)
+* **helm:** publish chart index + packages to gh-pages on release ([afc9564](https://github.com/zznathans/aodb/commit/afc9564da52906e7628e4e7e7e69bd6ba0059a64)), closes [#pages](https://github.com/zznathans/aodb/issues/pages) [#pages](https://github.com/zznathans/aodb/issues/pages) [#pages](https://github.com/zznathans/aodb/issues/pages)
+* **helm:** publish the chart as an OCI artifact instead of via gh-pages ([20664e1](https://github.com/zznathans/aodb/commit/20664e19c05758883759f60524a1b980b8997286)), closes [#pages](https://github.com/zznathans/aodb/issues/pages) [#pages](https://github.com/zznathans/aodb/issues/pages) [#pages](https://github.com/zznathans/aodb/issues/pages)
+* **release:** unify app/chart versioning, chain the release pipeline ([3f85275](https://github.com/zznathans/aodb/commit/3f8527532a2218e056897fbb294d426688ff437c)), closes [#100](https://github.com/zznathans/aodb/issues/100) [#115](https://github.com/zznathans/aodb/issues/115)
+* **search:** match substrings, not just prefixes ([128b9e6](https://github.com/zznathans/aodb/commit/128b9e69a115d6d447222fe75a3a0387cf771e85))
+* **web:** redesign browse UI and move JSON API under /api ([ddfe0e7](https://github.com/zznathans/aodb/commit/ddfe0e7a7a7d253a50609c9ace4d88131d2c5229))
+
+
+### Performance Improvements
+
+* **ci:** build amd64/arm64 natively instead of cross-building via QEMU ([ae9c5de](https://github.com/zznathans/aodb/commit/ae9c5de2c46b1791b8275f0418caaa78c8c8a129))
+
