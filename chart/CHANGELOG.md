@@ -1,3 +1,12 @@
+## chart@1.5.6 (2026-08-17)
+
+## chart [1.5.6](https://github.com/zznathans/aodb/compare/chart@1.5.5...chart@1.5.6) (2026-08-17)
+
+
+### Bug Fixes
+
+* **chart:** bump image to app@1.5.3 ([5656667](https://github.com/zznathans/aodb/commit/565666700d12b974b01262b262fb915e9c26e027))
+
 ## chart@1.5.5 (2026-08-17)
 
 ## chart [1.5.5](https://github.com/zznathans/aodb/compare/chart@1.5.4...chart@1.5.5) (2026-08-17)
