@@ -67,5 +67,9 @@ jobs:
         uses: helm/chart-releaser-action@cae68fefc6b5f367a0275617c9f83181ba54714f # v1.7.0
         with:
           charts_dir: .
+          # Without this, cr defaults to committing index.yaml at the
+          # gh-pages branch root -- see cr.yaml's own comment for why
+          # that's a real problem here, not just a URL mismatch.
+          config: cr.yaml
         env:
           CR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
