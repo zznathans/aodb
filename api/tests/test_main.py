@@ -1,11 +1,14 @@
 import asyncio
 import io
 import zipfile
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from api_analytics.fastapi import Analytics, Config
+from starlette.requests import Request
+from starlette.responses import Response
 
-from app.main import _LOAD_LOCK_KEY, _LOAD_READY_KEY, _load_items
+from app.main import _LOAD_LOCK_KEY, _LOAD_READY_KEY, _FilteredAnalytics, _load_items
 from app.store import nano_store, store
 
 XML_TEXT = """<?xml version="1.0"?>
@@ -155,3 +158,38 @@ async def test_load_items_releases_lock_on_exception(fake_redis, monkeypatch, tm
     # The lock must still be released even though loading blew up.
     assert await fake_redis.get(_LOAD_LOCK_KEY) is None
     assert await fake_redis.get(_LOAD_READY_KEY) is None
+
+
+def _make_request(path: str) -> Request:
+    return Request({"type": "http", "path": path, "headers": [], "query_string": b""})
+
+
+@pytest.mark.parametrize("path", ["/healthz", "/robots.txt", "/.well-known/api-catalog", "/static/style.css"])
+async def test_filtered_analytics_skips_logging_for_excluded_paths(path, monkeypatch):
+    logging_dispatch = AsyncMock(side_effect=AssertionError("should not log excluded paths"))
+    monkeypatch.setattr(Analytics, "dispatch", logging_dispatch)
+
+    middleware = _FilteredAnalytics(app=AsyncMock(), api_key="test-key", config=Config())
+    call_next = AsyncMock(return_value=Response("ok"))
+
+    response = await middleware.dispatch(_make_request(path), call_next)
+
+    call_next.assert_awaited_once()
+    logging_dispatch.assert_not_awaited()
+    assert response.status_code == 200
+
+
+async def test_filtered_analytics_logs_non_excluded_paths(monkeypatch):
+    logging_dispatch = AsyncMock(return_value=Response("ok"))
+    monkeypatch.setattr(Analytics, "dispatch", logging_dispatch)
+
+    middleware = _FilteredAnalytics(app=AsyncMock(), api_key="test-key", config=Config())
+    call_next = AsyncMock(return_value=Response("ok"))
+    request = _make_request("/api/items")
+
+    response = await middleware.dispatch(request, call_next)
+
+    # AsyncMock replaces Analytics.dispatch as a plain (non-descriptor)
+    # attribute, so super().dispatch(...) calls it unbound - no `self` arg.
+    logging_dispatch.assert_awaited_once_with(request, call_next)
+    assert response.status_code == 200

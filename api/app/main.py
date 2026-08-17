@@ -8,6 +8,8 @@ from fastapi import FastAPI, Request
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import RequestResponseEndpoint
+from starlette.responses import Response
 
 from .analytics import analytics_snippet
 from .api import router as api_router
@@ -111,13 +113,34 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="aodb", lifespan=lifespan, docs_url=None, openapi_url="/api/openapi.json")
 
+
+class _FilteredAnalytics(Analytics):
+    """api-analytics' Config (api_analytics/fastapi.py) has no option to
+    exclude paths from logging - it records every request that reaches the
+    middleware, unconditionally. Left as-is, that means k8s hitting
+    /healthz every few seconds dominates the analytics dashboard with
+    noise that isn't real API usage, along with crawler/infra requests
+    for /robots.txt, /.well-known/api-catalog, and static assets. This
+    subclass skips straight to call_next (bypassing Analytics.dispatch,
+    and therefore log_request) for exactly those paths."""
+
+    _EXCLUDED_PATHS = frozenset({"/healthz", "/robots.txt", "/.well-known/api-catalog"})
+    _EXCLUDED_PREFIXES = ("/static/",)
+
+    async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
+        path = request.url.path
+        if path in self._EXCLUDED_PATHS or path.startswith(self._EXCLUDED_PREFIXES):
+            return await call_next(request)
+        return await super().dispatch(request, call_next)
+
+
 # api-analytics (https://github.com/tom-draper/api-analytics) - optional,
 # opt-in request analytics forwarded to a third-party dashboard. Only
 # enabled when an API key is provisioned; privacy_level=2 means client IPs
 # are never sent, since this is a public, unauthenticated API.
 _analytics_key = os.environ.get("API_ANALYTICS_KEY")
 if _analytics_key:
-    app.add_middleware(Analytics, api_key=_analytics_key, config=Config(privacy_level=2))
+    app.add_middleware(_FilteredAnalytics, api_key=_analytics_key, config=Config(privacy_level=2))
 else:
     logger.warning("API_ANALYTICS_KEY not set - request analytics middleware disabled")
 
