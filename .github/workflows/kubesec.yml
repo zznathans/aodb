@@ -1,0 +1,77 @@
+# This workflow runs kubesec (https://kubesec.io) directly via a pinned
+# Docker image rather than controlplaneio/kubesec-action (GitHub's own
+# official Kubesec starter workflow uses that action) - verified locally
+# that action is currently broken two ways: its bundled kubesec 2.11.0
+# validates resource schemas against kubernetesjsonschema.dev, whose TLS
+# cert no longer matches that domain (every resource silently scores 0,
+# forever); and the starter's own `template: template/sarif.tpl` input is
+# the wrong path (relative + singular "template") - the actual bundled
+# template lives at the absolute path /templates/sarif.tpl in both the old
+# and current kubesec images. Running the image ourselves with the correct
+# path avoids both.
+
+name: Kubesec
+
+# Scans the fully-rendered Kubernetes manifests the chart actually produces
+# (via `helm template`), not the chart's raw Go-template source - kubesec
+# scores concrete resource specs (securityContext, resource limits, etc.),
+# which only exist post-render. kubesec's own `scan` command handles a
+# multi-document YAML file natively (one result per document), so the
+# whole rendered chart goes through as a single input file.
+#
+# Not a required check (informational only, exit-code 0 below), so a
+# plain workflow-level path filter is safe here - only worth running when
+# the chart actually changed. The weekly schedule still runs regardless of
+# recent changes, to catch newly-disclosed issues even with nothing new to
+# scan (same rationale as scorecard.yml's schedule trigger).
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'chart/**'
+  pull_request:
+    branches: ["main"]
+    paths:
+      - 'chart/**'
+  schedule:
+    - cron: '43 20 * * 2'
+
+jobs:
+  scan:
+    name: Scan rendered manifests
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+        with:
+          version: "3.17.0"
+
+      # Same placeholder values as chart-ci.yml's helm-lint job - just
+      # enough to satisfy the chart's required values so it renders.
+      - name: Render chart manifests
+        run: |
+          helm template chart \
+            --set aodbApi.dumpUrl=https://example.invalid/dump.xml.zip \
+            --set aodbApi.redisUrl=redis://example-redis:6379/0 \
+            > rendered.yaml
+
+      # --output doesn't reliably write to disk under --format=template
+      # (verified locally - the SARIF still prints to stdout regardless),
+      # so redirect stdout instead of relying on kubesec's --output flag.
+      # exit-code=0: informational only, never fails the job on findings.
+      - name: Run kubesec scanner
+        run: |
+          docker run --rm -v "$PWD:/data" -u 1001 \
+            kubesec/kubesec@sha256:025a365d9f1881be51df17c323109ecf3c24b60c0d296143ea05c15479d0695e \
+            scan --format=template --template=/templates/sarif.tpl --exit-code=0 /data/rendered.yaml \
+            > kubesec-results.sarif
+
+      - name: Upload Kubesec scan results to GitHub Security tab
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        with:
+          sarif_file: kubesec-results.sarif
