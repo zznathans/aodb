@@ -28,7 +28,18 @@ jobs:
     name: Scorecard analysis
     runs-on: ubuntu-latest
     # `publish_results: true` only works when run from the default branch.
-    if: github.event.repository.default_branch == github.ref_name
+    # The event_name/actor check only applies to the push trigger - it
+    # skips the flood of downstream release-bot merges (image-tag bump,
+    # Chart.yaml sync, changelog PRs, all pushed to main off the same
+    # underlying release), none of which change anything Scorecard's
+    # checks actually look at (branch protection, dependency pinning,
+    # etc.), so re-running on every single one is pure noise. Scoped to
+    # push specifically so it can't accidentally also skip the schedule
+    # or branch_protection_rule triggers, which don't set an actor tied
+    # to any particular commit.
+    if: |
+      github.event.repository.default_branch == github.ref_name &&
+      (github.event_name != 'push' || github.actor != 'aodb-release[bot]')
     permissions:
       # Needed to publish results and get a badge (see publish_results below).
       id-token: write
