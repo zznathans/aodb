@@ -13,12 +13,19 @@ on:
     - cron: '33 21 * * 6'
   push:
     branches: [ "main" ]
-  # Deliberately no `pull_request` trigger: this repo merges frequently
-  # (bot-driven release PRs included), and a PR-triggered run here never
-  # published results anyway (publish_results is gated to non-PR events
-  # below) - it was pure duplicate cost, firing again on every PR's
-  # resulting push to main moments later. push[main] + the weekly
-  # schedule already cover every state actually worth analyzing.
+  # Almost every change can move Scorecard's score (new/changed
+  # dependencies, action pins, Dockerfile, workflow permissions, etc.) --
+  # run on PRs too, not just main pushes/weekly cron. publish_results is
+  # forced off below for PR runs (see the "Run analysis" step):
+  # Scorecard only wants the canonical main-branch analysis published to
+  # the public OpenSSF API, not a PR branch's in-progress state. Matches
+  # aomarket-bot's scorecard.yml. The old bot-actor skip here is gone -
+  # B1's unified versioning means there's only one bot-opened PR per
+  # release now (update-changelog, which doesn't even touch chart/**),
+  # not the 2-3-PR fan-out that made re-scanning every one of them worth
+  # skipping.
+  pull_request:
+    branches: [ "main" ]
 
 # Declare default permissions as read only.
 permissions: read-all
@@ -27,19 +34,8 @@ jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
-    # `publish_results: true` only works when run from the default branch.
-    # The event_name/actor check only applies to the push trigger - it
-    # skips the flood of downstream release-bot merges (image-tag bump,
-    # Chart.yaml sync, changelog PRs, all pushed to main off the same
-    # underlying release), none of which change anything Scorecard's
-    # checks actually look at (branch protection, dependency pinning,
-    # etc.), so re-running on every single one is pure noise. Scoped to
-    # push specifically so it can't accidentally also skip the schedule
-    # or branch_protection_rule triggers, which don't set an actor tied
-    # to any particular commit.
-    if: |
-      github.event.repository.default_branch == github.ref_name &&
-      (github.event_name != 'push' || github.actor != 'aodb-release[bot]')
+    # `publish_results: true` only works when run from the default branch. conditional can be removed if disabled.
+    if: github.event.repository.default_branch == github.ref_name || github.event_name == 'pull_request'
     permissions:
       # Needed to publish results and get a badge (see publish_results below).
       id-token: write
@@ -71,7 +67,9 @@ jobs:
           # For private repositories:
           #   - `publish_results` will always be set to `false`, regardless
           #     of the value entered here.
-          publish_results: true
+          # Only publish for the canonical main-branch analysis (push/
+          # schedule/branch_protection_rule) -- not for pull_request runs.
+          publish_results: ${{ github.event_name != 'pull_request' }}
 
           # (Optional) Uncomment file_mode if you have a .gitattributes with files marked export-ignore
           # file_mode: git

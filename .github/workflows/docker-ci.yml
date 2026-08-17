@@ -1,0 +1,79 @@
+name: Docker CI
+
+# Build-and-scan verification only -- never publishes. Actual publishing
+# to ghcr.io happens from release.yml's build/merge-and-scan jobs, in the
+# same workflow run as the semantic-release step that cuts the version
+# tag. There's no "latest floating on main" image.
+#
+# No path filter, even though this only really needs to run when api/
+# changes: this job's own name is a required status check in the branch
+# ruleset, and a required check that never runs (because a PR only
+# touched, say, chart/**) leaves GitHub treating it as permanently
+# pending - blocking merge even with every other check green. The build
+# itself is cheap, so running it on every PR is worth it to keep that
+# check meaningful (matches aomarket-bot's docker.yml, which never had a
+# path filter for the same reason).
+on:
+  pull_request:
+
+concurrency:
+  group: docker-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and Scan (verification only)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4
+
+      - name: Build image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7
+        with:
+          context: ./api
+          push: false
+          load: true
+          tags: aodb:pr-${{ github.event.pull_request.number }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Two separate scans rather than one gating on `format: sarif` - see
+      # release.yml's identical comment: the sarif+exit-code combination in
+      # this trivy-action version was observed to fail the step spuriously
+      # even when the produced SARIF had zero results, both here and in
+      # aomarket-bot's equivalent workflow (confirmed live on that
+      # workflow's own first real PR run).
+      - name: Scan image for vulnerabilities (fails the build on CRITICAL/HIGH)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: aodb:pr-${{ github.event.pull_request.number }}
+          format: table
+          exit-code: "1"
+          ignore-unfixed: true
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
+
+      - name: Generate SARIF for the Security tab (informational, non-gating)
+        if: always()
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: aodb:pr-${{ github.event.pull_request.number }}
+          format: sarif
+          output: trivy-results.sarif
+          exit-code: "0"
+
+      - name: Upload Trivy scan results to the Security tab
+        uses: github/codeql-action/upload-sarif@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
+        if: always() && hashFiles('trivy-results.sarif') != ''
+        with:
+          sarif_file: trivy-results.sarif
+          category: trivy-pr-verification
