@@ -150,3 +150,18 @@ jobs:
             --title "chore(chart): sync Chart.yaml to ${RELEASE_TAG}" \
             --body "Keeps chart/Chart.yaml's version/appVersion in sync with [${RELEASE_TAG}](https://github.com/zznathans/aodb/releases/tag/${RELEASE_TAG}).")
           gh pr merge --auto --merge "$pr_url"
+
+          # gh pr merge --auto doesn't reliably self-update a branch that
+          # falls BEHIND main (e.g. another bot PR opened around the same
+          # time - update-changelog.yml's, off the same release event -
+          # merges first) - poll and nudge it explicitly rather than
+          # leaving it stuck waiting indefinitely.
+          pr_number=$(gh pr view "$pr_url" --json number --jq .number)
+          for i in $(seq 1 12); do
+            state=$(gh pr view "$pr_number" --json state,mergeStateStatus --jq '"\(.state) \(.mergeStateStatus)"')
+            case "$state" in
+              MERGED*) exit 0 ;;
+              *BEHIND) gh api -X PUT "repos/${{ github.repository }}/pulls/${pr_number}/update-branch" || true ;;
+            esac
+            sleep 10
+          done
