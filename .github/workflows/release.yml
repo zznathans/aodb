@@ -13,15 +13,24 @@ name: Release
 # protection on main is never a concern here - only a git tag + GitHub
 # Release get created via the API.
 #
-# Uses the default GITHUB_TOKEN, not a PAT: GITHUB_TOKEN has everything
-# needed to create tags/releases given contents:write below. The catch is
-# GitHub's anti-recursion rule - events created *using* GITHUB_TOKEN
-# (including the release this job creates) never trigger other workflows'
-# `release: published` listeners. workflow_dispatch is explicitly exempted
-# from that rule, so instead of relying on the release event, the release
-# job below diffs tags before/after the run and the dispatch job explicitly
-# fires docker.yml / helm-release.yml / pages.yml / update-changelog.yml for
-# whichever tag(s) actually got created.
+# Authenticates as the aodb-release-bot GitHub App (same one docker.yml's
+# bump-chart-image-tag / helm-release.yml's sync-chart-yaml /
+# update-changelog.yml / reg_clean.yaml already use) rather than the
+# default GITHUB_TOKEN. This used to run as GITHUB_TOKEN specifically to
+# get contents:write for free, but that hit GitHub's anti-recursion rule:
+# events created *using* GITHUB_TOKEN never trigger other workflows'
+# `release: published` listeners - so this job used to diff tags
+# before/after its own run and explicitly `gh workflow run` each
+# downstream workflow (docker.yml/helm-release.yml/pages.yml/
+# update-changelog.yml) for whichever tag(s) it had just created. That
+# custom dispatch was also fragile: a failure partway through (mid an
+# outage, more than once) silently dropped a tag with nothing to retry it
+# short of a manual re-dispatch. App-installation tokens aren't subject to
+# the anti-recursion rule, so releases created here now trigger those four
+# workflows' *existing* `release: published` triggers directly and
+# reliably - for every tag/release on the repo, not just ones this job's
+# own dispatch logic knew to fan out to (a manually-created release now
+# triggers them too, for free). No custom dispatch step needed at all.
 #
 # Triggers directly on push to main rather than watching API CI/Chart CI
 # finish (as it used to watch one combined "CI" workflow before they were
@@ -33,87 +42,31 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: write
-  actions: write
-
 jobs:
-  # Split from the dispatch step below (which used to live in this same
-  # job) specifically so a failed dispatch can be re-run on its own: if
-  # "Re-run failed jobs" only had one job to work with, re-running it would
-  # redo the tag diff from scratch, and by then the tags this run just
-  # created are no longer "new" - the dispatch would silently never fire.
-  # Splitting means a re-run reuses this job's already-computed `tags`
-  # output and only re-executes the dispatch.
   release:
     name: Run multi-semantic-release
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, '[skip ci]')"
-    outputs:
-      tags: ${{ steps.new-tags.outputs.tags }}
+    permissions: {}
     steps:
+      - name: Generate a token for the release bot
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
           ref: main
+          token: ${{ steps.app-token.outputs.token }}
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
 
-      - name: Record tags before release
-        run: git tag --list > /tmp/tags-before.txt
-
       - name: Run multi-semantic-release
         run: npx --yes multi-semantic-release
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Compute newly-created tags
-        id: new-tags
-        run: |
-          git tag --list > /tmp/tags-after.txt
-          new_tags=$(comm -13 /tmp/tags-before.txt /tmp/tags-after.txt)
-          {
-            echo "tags<<EOF"
-            echo "$new_tags"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-  dispatch:
-    name: Dispatch downstream workflows
-    needs: release
-    runs-on: ubuntu-latest
-    permissions:
-      actions: write
-    env:
-      NEW_TAGS: ${{ needs.release.outputs.tags }}
-    steps:
-      - name: Dispatch downstream workflows for any newly-created tags
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO: ${{ github.repository }}
-        run: |
-          if [ -z "$NEW_TAGS" ]; then
-            echo "No new release - nothing to dispatch."
-            exit 0
-          fi
-
-          while IFS= read -r tag; do
-            [ -z "$tag" ] && continue
-            echo "New tag: $tag"
-            case "$tag" in
-              app@*)
-                gh workflow run docker.yml -f tag="$tag" --repo "$REPO"
-                gh workflow run pages.yml -f tag="$tag" --repo "$REPO"
-                gh workflow run update-changelog.yml -f tag="$tag" --repo "$REPO"
-                ;;
-              chart@*)
-                gh workflow run helm-release.yml -f tag="$tag" --repo "$REPO"
-                gh workflow run update-changelog.yml -f tag="$tag" --repo "$REPO"
-                ;;
-              *)
-                echo "Unrecognized tag format, not dispatching anything: $tag" >&2
-                ;;
-            esac
-          done <<< "$NEW_TAGS"
+          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
