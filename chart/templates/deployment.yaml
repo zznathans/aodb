@@ -22,7 +22,11 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
     spec:
-      serviceAccount: {{ .Release.Name }}-serviceaccount
+      serviceAccountName: {{ .Release.Name }}-serviceaccount
+      # This app never calls the Kubernetes API - it's a stateless
+      # Redis-backed HTTP service - so the default-mounted SA token would
+      # just be unused attack surface.
+      automountServiceAccountToken: false
       containers:
         - name: {{ .Release.Name }}
           image: {{ .Values.aodbApi.imageRepository }}:{{ .Values.aodbApi.imageTag }}
@@ -39,11 +43,20 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             runAsNonRoot: true
-            runAsUser: 1000
+            # Matches the base image's own built-in "nonroot" user/group
+            # (gcr.io/distroless/base-debian13:nonroot, api/Dockerfile) -
+            # a high UID/GID avoids colliding with real users/groups on
+            # the host in a shared-kernel environment.
+            runAsUser: 65532
+            runAsGroup: 65532
             seccompProfile:
               type: RuntimeDefault
             capabilities:
               drop: ["ALL"]
+            # Nothing in the app writes to the filesystem at runtime - the
+            # item dump loads straight into Redis over the network
+            # (app/dump_loader.py), never to local disk.
+            readOnlyRootFilesystem: true
           resources:
             {{- toYaml .Values.aodbApi.resources | nindent 12 }}
           {{- if .Values.aodbApi.analyticsHtml }}
