@@ -1,0 +1,7 @@
+# Config for helm/chart-releaser-action (chart-publish.yml's publish-gh-pages
+# job). Without this, `cr index` defaults to committing index.yaml at the
+# gh-pages branch root -- which collides with pages.yml's cleanup step
+# (it clears everything at root except .git and charts/, so it would
+# silently delete a root-level index.yaml on its next run) and doesn't
+# match the /charts/ URL the READMEs document.
+pages-index-path: charts/index.yaml
