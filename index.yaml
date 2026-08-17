@@ -11,4 +11,14 @@ entries:
     urls:
     - https://github.com/zznathans/aodb/releases/download/aodb-1.5.6/aodb-1.5.6.tgz
     version: 1.5.6
-generated: "2026-08-17T23:25:23.539470716Z"
+  - apiVersion: v2
+    appVersion: 1.1.0
+    created: "2026-08-17T23:26:30.920435125Z"
+    description: Helm chart for aodb
+    digest: c304fc2842da0fe421f0ffa1863bd63a311362b52e9cfcaeb6636931de56fd94
+    name: aodb
+    type: application
+    urls:
+    - https://github.com/zznathans/aodb/releases/download/aodb-1.1.0/aodb-1.1.0.tgz
+    version: 1.1.0
+generated: "2026-08-17T23:26:30.920448555Z"
