@@ -124,7 +124,11 @@ Separately, request-level analytics (method, path, status, response
 time) can optionally be forwarded to [api-analytics](https://github.com/tom-draper/api-analytics)
 by setting `API_ANALYTICS_KEY`; without it, that middleware simply isn't
 registered (see `app/main.py`). Client IPs are never sent
-(`privacy_level=2`).
+(`privacy_level=2`). `/healthz`, `/robots.txt`,
+`/.well-known/api-catalog`, and `/static/*` are excluded from logging
+(api-analytics has no built-in path filter, so this is handled by
+`_FilteredAnalytics` in `app/main.py`) since they're infra/crawler noise,
+not real API usage.
 
 ## Local development
 
