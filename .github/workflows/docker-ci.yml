@@ -5,14 +5,15 @@ name: Docker CI
 # same workflow run as the semantic-release step that cuts the version
 # tag. There's no "latest floating on main" image.
 #
-# No path filter, even though this only really needs to run when api/
-# changes: this job's own name is a required status check in the branch
-# ruleset, and a required check that never runs (because a PR only
-# touched, say, chart/**) leaves GitHub treating it as permanently
-# pending - blocking merge even with every other check green. The build
-# itself is cheap, so running it on every PR is worth it to keep that
-# check meaningful (matches aomarket-bot's docker.yml, which never had a
-# path filter for the same reason).
+# Gated behind the `changes` job below (api/** only - the Dockerfile
+# lives at api/Dockerfile) rather than a workflow-level path filter: this
+# job's own name is a required status check in the branch ruleset, and a
+# required check that never runs at all (because a PR only touched, say,
+# chart/**) leaves GitHub treating it as permanently pending - blocking
+# merge even with every other check green. `changes` itself always runs
+# (fast, no-op on non-api PRs) so the check always reports; the actual
+# build+scan only runs when api/ is touched, matching api-ci.yml's own
+# `changes`-job pattern.
 on:
   pull_request:
 
@@ -24,8 +25,26 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      api: ${{ steps.filter.outputs.api }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'api/**'
+
   build:
     name: Build and Scan (verification only)
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
