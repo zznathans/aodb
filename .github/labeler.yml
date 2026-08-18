@@ -1,29 +1,29 @@
 api:
-- changed-files:
+  - changed-files:
   - any-glob-to-any-file:
-    - 'api/**'
+      - 'api/**'
 
 chart:
-- changed-files:
-  - any-glob-to-any-file:
-    - 'chart/**'
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'chart/**'
 
 docs:
-- changed-files:
-  - any-glob-to-any-file:
-    - 'docs/**'
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'docs/**'
 
 scripts:
-- changed-files:
-  - any-glob-to-any-file:
-    - 'scripts/**'
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'scripts/**'
 
 deps:
-- changed-files:
-  - any-glob-to-any-file:
-    - 'requirements*'
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'requirements*'
 
 ci:
-- changed-files:
-  - any-glob-to-any-file:
-    - '.github/**'
+  - changed-files:
+    - any-glob-to-any-file:
+      - '.github/**'
