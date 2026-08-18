@@ -41,7 +41,7 @@ jobs:
       - run: pip install --require-hashes -r requirements-ci.txt
       - run: pip install --no-deps -e .
 
-      - run: ruff check src tests
+      - run: ruff check api tests
 
   test:
     name: Tests
@@ -66,7 +66,7 @@ jobs:
       - run: pip install --require-hashes -r requirements-ci.txt
       - run: pip install --no-deps -e .
 
-      - run: pytest -v --cov=aomarket --cov-report=lcov:coverage.lcov
+      - run: pytest -v --cov=api --cov-report=lcov:coverage.lcov
 
       # Informational only -- not a required status check, so a coverage
       # regression never blocks merging. Doesn't need a repo token:
