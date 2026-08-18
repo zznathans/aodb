@@ -11,27 +11,52 @@ async def _seed():
     )
 
 
-async def test_sitemap_index_lists_one_chunk_each(client):
-    await _seed()
-
+async def test_sitemap_index_lists_per_resource_indexes(client):
     resp = client.get("/sitemap.xml")
 
     assert resp.status_code == 200
     assert resp.headers["content-type"] == "application/xml"
     assert resp.headers["cache-control"] == "public, max-age=3600"
     assert "<sitemapindex" in resp.text
+    assert "http://testserver/items/sitemap.xml" in resp.text
+    assert "http://testserver/nanos/sitemap.xml" in resp.text
+
+
+async def test_sitemap_items_index_lists_one_chunk(client):
+    await _seed()
+
+    resp = client.get("/items/sitemap.xml")
+
+    assert resp.status_code == 200
+    assert "<sitemapindex" in resp.text
     assert "http://testserver/items/sitemap-0.xml" in resp.text
-    assert "http://testserver/nanos/sitemap-0.xml" in resp.text
-    # only 5 items / 3 nanos seeded - well under the 50,000-per-chunk limit
+    # only 5 items seeded - well under the 50,000-per-chunk limit
     assert "items/sitemap-1.xml" not in resp.text
-    assert "nanos/sitemap-1.xml" not in resp.text
 
 
-async def test_sitemap_index_still_returns_one_chunk_when_empty(client):
-    resp = client.get("/sitemap.xml")
+async def test_sitemap_items_index_still_returns_one_chunk_when_empty(client):
+    resp = client.get("/items/sitemap.xml")
 
     assert resp.status_code == 200
     assert "http://testserver/items/sitemap-0.xml" in resp.text
+
+
+async def test_sitemap_nanos_index_lists_one_chunk(client):
+    await _seed()
+
+    resp = client.get("/nanos/sitemap.xml")
+
+    assert resp.status_code == 200
+    assert "<sitemapindex" in resp.text
+    assert "http://testserver/nanos/sitemap-0.xml" in resp.text
+    # only 3 nanos seeded - well under the 50,000-per-chunk limit
+    assert "nanos/sitemap-1.xml" not in resp.text
+
+
+async def test_sitemap_nanos_index_still_returns_one_chunk_when_empty(client):
+    resp = client.get("/nanos/sitemap.xml")
+
+    assert resp.status_code == 200
     assert "http://testserver/nanos/sitemap-0.xml" in resp.text
 
 

@@ -8,10 +8,8 @@ name: Chart Publish
 # workaround needed, unlike a release:published-triggered workflow would)
 # since that commit no longer carries [skip ci].
 on:
-  push:
-    branches: [main]
-    paths:
-      - "chart/**"
+  release:
+    types: [published]
 
 permissions:
   contents: read
