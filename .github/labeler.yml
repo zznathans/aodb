@@ -1,7 +1,7 @@
 api:
   - changed-files:
       - any-glob-to-any-file:
-          - "api/**
+          - "api/**"
 
 tests:
   - changed-files:
@@ -14,7 +14,6 @@ docker:
       - any-glob-to-any-file:
           - "api/Dockerfile"
           - "api/.dockerignore"
-
 
 dependencies:
   - changed-files:
@@ -29,12 +28,15 @@ helm:
 
 scripts:
   - changed-files:
-      - any-glob-to-any-file: "scripts/**"
+      - any-glob-to-any-file:
+          - "scripts/**"
 
 ci:
   - changed-files:
-      - any-glob-to-any-file: ".github/**"
+      - any-glob-to-any-file:
+          - ".github/**"
 
 documentation:
   - changed-files:
-      - any-glob-to-any-file: "**/*.md"
+      - any-glob-to-any-file:
+          - "**/*.md"
