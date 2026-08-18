@@ -11,7 +11,7 @@ async def _seed():
     )
 
 
-async def test_sitemap_index_lists_pages_and_one_chunk_each(client):
+async def test_sitemap_index_lists_one_chunk_each(client):
     await _seed()
 
     resp = client.get("/sitemap.xml")
@@ -20,36 +20,25 @@ async def test_sitemap_index_lists_pages_and_one_chunk_each(client):
     assert resp.headers["content-type"] == "application/xml"
     assert resp.headers["cache-control"] == "public, max-age=3600"
     assert "<sitemapindex" in resp.text
-    assert "http://testserver/sitemap-pages.xml" in resp.text
-    assert "http://testserver/sitemap-items-0.xml" in resp.text
-    assert "http://testserver/sitemap-nanos-0.xml" in resp.text
+    assert "http://testserver/items/sitemap-0.xml" in resp.text
+    assert "http://testserver/nanos/sitemap-0.xml" in resp.text
     # only 5 items / 3 nanos seeded - well under the 50,000-per-chunk limit
-    assert "sitemap-items-1.xml" not in resp.text
-    assert "sitemap-nanos-1.xml" not in resp.text
+    assert "items/sitemap-1.xml" not in resp.text
+    assert "nanos/sitemap-1.xml" not in resp.text
 
 
 async def test_sitemap_index_still_returns_one_chunk_when_empty(client):
     resp = client.get("/sitemap.xml")
 
     assert resp.status_code == 200
-    assert "http://testserver/sitemap-items-0.xml" in resp.text
-    assert "http://testserver/sitemap-nanos-0.xml" in resp.text
-
-
-async def test_sitemap_pages_lists_browse_landing_pages(client):
-    resp = client.get("/sitemap-pages.xml")
-
-    assert resp.status_code == 200
-    assert "<urlset" in resp.text
-    assert "http://testserver/</loc>" in resp.text
-    assert "http://testserver/items</loc>" in resp.text
-    assert "http://testserver/nanos</loc>" in resp.text
+    assert "http://testserver/items/sitemap-0.xml" in resp.text
+    assert "http://testserver/nanos/sitemap-0.xml" in resp.text
 
 
 async def test_sitemap_items_lists_every_seeded_item(client):
     await _seed()
 
-    resp = client.get("/sitemap-items-0.xml")
+    resp = client.get("/items/sitemap-0.xml")
 
     assert resp.status_code == 200
     for i in range(1, 6):
@@ -57,7 +46,7 @@ async def test_sitemap_items_lists_every_seeded_item(client):
 
 
 async def test_sitemap_items_empty_chunk_is_a_valid_empty_urlset(client):
-    resp = client.get("/sitemap-items-0.xml")
+    resp = client.get("/items/sitemap-0.xml")
 
     assert resp.status_code == 200
     assert "<urlset" in resp.text
@@ -67,7 +56,7 @@ async def test_sitemap_items_empty_chunk_is_a_valid_empty_urlset(client):
 async def test_sitemap_nanos_lists_every_seeded_nano(client):
     await _seed()
 
-    resp = client.get("/sitemap-nanos-0.xml")
+    resp = client.get("/nanos/sitemap-0.xml")
 
     assert resp.status_code == 200
     for i in range(101, 104):

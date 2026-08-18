@@ -148,8 +148,8 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.include_router(api_router, prefix="/api")
 app.include_router(legacy_router, prefix="/api")
 app.include_router(professions_router, prefix="/api")
-app.include_router(web_router)
 app.include_router(sitemap_router)
+app.include_router(web_router)
 
 
 @app.get("/api", include_in_schema=False)

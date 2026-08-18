@@ -2,8 +2,9 @@
 the item/nano catalog rather than relying on crawling links alone. The full
 catalog (~125k items + ~10.5k nanos per app/store.py's module docstring)
 exceeds a single sitemap's 50,000-URL limit, so this is a sitemap index
-(/sitemap.xml) referencing per-resource, per-chunk sub-sitemaps rather than
-one flat file - see https://www.sitemaps.org/protocol.html.
+(/sitemap.xml) referencing per-chunk sub-sitemaps nested under each
+resource's own path (/items/sitemap-{n}.xml, /nanos/sitemap-{n}.xml) rather
+than one flat file - see https://www.sitemaps.org/protocol.html.
 
 Every response here only depends on data that changes at most once per
 dump reload (see main.py's _load_items), so a generous Cache-Control lets
@@ -59,26 +60,19 @@ async def sitemap_index(request: Request) -> Response:
     item_total = await store.count("", 0)
     nano_total = await nano_store.count("", 0, "", None)
 
-    locs = [f"{base}/sitemap-pages.xml"]
-    locs += [f"{base}/sitemap-items-{n}.xml" for n in range(_chunk_count(item_total))]
-    locs += [f"{base}/sitemap-nanos-{n}.xml" for n in range(_chunk_count(nano_total))]
+    locs = [f"{base}/items/sitemap-{n}.xml" for n in range(_chunk_count(item_total))]
+    locs += [f"{base}/nanos/sitemap-{n}.xml" for n in range(_chunk_count(nano_total))]
     return _xml_response(_sitemap_index_xml(locs))
 
 
-@router.get("/sitemap-pages.xml", include_in_schema=False)
-async def sitemap_pages(request: Request) -> Response:
-    base = str(request.base_url).rstrip("/")
-    return _xml_response(_urlset_xml([f"{base}/", f"{base}/items", f"{base}/nanos"]))
-
-
-@router.get("/sitemap-items-{n}.xml", include_in_schema=False)
+@router.get("/items/sitemap-{n}.xml", include_in_schema=False)
 async def sitemap_items(request: Request, n: int) -> Response:
     base = str(request.base_url).rstrip("/")
     ids = await store.list_ids(_MAX_URLS_PER_SITEMAP, n * _MAX_URLS_PER_SITEMAP)
     return _xml_response(_urlset_xml([f"{base}/items/{id_}" for id_ in ids]))
 
 
-@router.get("/sitemap-nanos-{n}.xml", include_in_schema=False)
+@router.get("/nanos/sitemap-{n}.xml", include_in_schema=False)
 async def sitemap_nanos(request: Request, n: int) -> Response:
     base = str(request.base_url).rstrip("/")
     ids = await nano_store.list_ids(_MAX_URLS_PER_SITEMAP, n * _MAX_URLS_PER_SITEMAP)
