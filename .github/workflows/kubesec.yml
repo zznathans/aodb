@@ -25,14 +25,7 @@ name: Kubesec
 # recent changes, to catch newly-disclosed issues even with nothing new to
 # scan (same rationale as scorecard.yml's schedule trigger).
 on:
-  push:
-    branches: ["main"]
-    paths:
-      - 'chart/**'
   pull_request:
-    branches: ["main"]
-    paths:
-      - 'chart/**'
   schedule:
     - cron: '43 20 * * 2'
 

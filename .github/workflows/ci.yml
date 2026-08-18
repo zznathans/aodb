@@ -1,0 +1,82 @@
+name: CI
+
+# Runs on pushes to any branch except main (so work-in-progress branches get
+# feedback before a PR even exists) and on pull requests. Deliberately no
+# push[main]: nothing should ever land on main without having gone through
+# a PR that already ran these same checks, so re-running again on the
+# post-merge push would just re-verify code that already passed.
+on:
+  pull_request:
+
+# check-pr below only guards *subsequent* pushes to a branch that already
+# has an open PR -- the very first push fires immediately, before the PR
+# exists yet to be detected, so opening the PR moments later still starts
+# a second, redundant run for that same commit via pull_request. head_ref
+# (pull_request) and ref_name (push) both resolve to the plain branch name,
+# so both events for the same branch land in the same group; whichever
+# fires second cancels the other instead of both running to completion.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      # Two steps rather than one `pip install -e ".[dev]"`: --require-hashes
+      # refuses to run at all if *any* requirement it's installing lacks a
+      # hash, and the local package itself (an editable install of this
+      # checkout, not a fetched artifact) has no meaningful hash to give it.
+      - run: pip install --require-hashes -r requirements-ci.txt
+      - run: pip install --no-deps -e .
+
+      - run: ruff check src tests
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+
+
+    # Coveralls' own step below posts a PR comment with the coverage diff
+    # -- job-level permissions replace rather than merge with the
+    # workflow-level default, so contents: read has to be repeated here.
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.14"
+          cache: pip
+
+      - run: pip install --require-hashes -r requirements-ci.txt
+      - run: pip install --no-deps -e .
+
+      - run: pytest -v --cov=aomarket --cov-report=lcov:coverage.lcov
+
+      # Informational only -- not a required status check, so a coverage
+      # regression never blocks merging. Doesn't need a repo token:
+      # defaults to github-token: github.token and auto-creates the repo
+      # on Coveralls on first post. continue-on-error because the
+      # action's own default (fail-on-error: true) means a Coveralls-side
+      # outage -- not our data -- would otherwise fail this job.
+      - name: Coveralls
+        continue-on-error: true
+        uses: coverallsapp/github-action@8d6379e14d29928660c4ba802d8e85393440b329 # v2.3.8
+        with:
+          file: coverage.lcov
+

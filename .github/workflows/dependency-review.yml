@@ -5,13 +5,6 @@ name: Dependency Review
 # - only worth running when a dependency manifest actually changed.
 on:
   pull_request:
-    paths:
-      - 'api/requirements*.in'
-      - 'api/requirements*.txt'
-      - 'requirements-ci.in'
-      - 'requirements-ci.txt'
-      - 'package.json'
-      - 'api/Dockerfile'
 
 permissions:
   contents: read

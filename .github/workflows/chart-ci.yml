@@ -7,8 +7,6 @@ name: Chart CI
 # re-running it again on the post-merge push to main would just re-verify
 # code that already passed.
 on:
-  push:
-    branches-ignore: [main]
   pull_request:
 
 # Least-privilege default; each job below grants itself only what it actually needs.

@@ -1,18 +1,7 @@
-api-v1:
+api:
   - changed-files:
       - any-glob-to-any-file:
-          - "api/app/main.py"
-          - "api/app/aoml.py"
-
-api-v2:
-  - changed-files:
-      - any-glob-to-any-file: "api/app/v2.py"
-
-data:
-  - changed-files:
-      - any-glob-to-any-file:
-          - "api/app/store.py"
-          - "api/app/dump_loader.py"
+          - "api/**
 
 tests:
   - changed-files:
@@ -26,6 +15,7 @@ docker:
           - "api/Dockerfile"
           - "api/.dockerignore"
 
+
 dependencies:
   - changed-files:
       - any-glob-to-any-file:
@@ -35,9 +25,7 @@ dependencies:
 helm:
   - changed-files:
       - any-glob-to-any-file:
-          - "chart/templates/**"
-          - "chart/values.yaml"
-          - "chart/Chart.yaml"
+          - "chart/**"
 
 scripts:
   - changed-files:
