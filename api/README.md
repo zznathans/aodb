@@ -22,13 +22,14 @@ available. Icons aren't rendered (the `icon` field is a numeric AO client
 icon id with no public image mapping this app takes a dependency on).
 
 Crawlers are pointed at the catalog via `/robots.txt` (`Sitemap:` directive)
-and `/sitemap.xml` - a sitemap index (per
-[sitemaps.org](https://www.sitemaps.org/protocol.html)) referencing chunked
-`/items/sitemap-{n}.xml` / `/nanos/sitemap-{n}.xml` sub-sitemaps nested
-under their respective resource paths (50,000 URLs each, since the full
-catalog exceeds a single sitemap's limit). Responses are cached
-(`Cache-Control: public, max-age=3600`) since the underlying data only
-changes on a dump reload.
+and `/sitemap.xml` - a three-level sitemap index (per
+[sitemaps.org](https://www.sitemaps.org/protocol.html)): the root
+references a per-resource index nested under each resource's own path
+(`/items/sitemap.xml`, `/nanos/sitemap.xml`), which in turn references
+that resource's chunked `/items/sitemap-{n}.xml` / `/nanos/sitemap-{n}.xml`
+sub-sitemaps (50,000 URLs each, since the full catalog exceeds a single
+sitemap's limit). Responses are cached (`Cache-Control: public,
+max-age=3600`) since the underlying data only changes on a dump reload.
 
 ## API
 

@@ -1,10 +1,12 @@
 """sitemaps.org-protocol sitemap generation, so search engines can discover
 the item/nano catalog rather than relying on crawling links alone. The full
 catalog (~125k items + ~10.5k nanos per app/store.py's module docstring)
-exceeds a single sitemap's 50,000-URL limit, so this is a sitemap index
-(/sitemap.xml) referencing per-chunk sub-sitemaps nested under each
-resource's own path (/items/sitemap-{n}.xml, /nanos/sitemap-{n}.xml) rather
-than one flat file - see https://www.sitemaps.org/protocol.html.
+exceeds a single sitemap's 50,000-URL limit, so this is a three-level
+sitemap index: the root (/sitemap.xml) references a per-resource index
+nested under each resource's own path (/items/sitemap.xml,
+/nanos/sitemap.xml), which in turn references that resource's numbered
+chunk sub-sitemaps (/items/sitemap-{n}.xml, /nanos/sitemap-{n}.xml) - see
+https://www.sitemaps.org/protocol.html.
 
 Every response here only depends on data that changes at most once per
 dump reload (see main.py's _load_items), so a generous Cache-Control lets
@@ -57,11 +59,22 @@ def _chunk_count(total: int) -> int:
 @router.get("/sitemap.xml", include_in_schema=False)
 async def sitemap_index(request: Request) -> Response:
     base = str(request.base_url).rstrip("/")
-    item_total = await store.count("", 0)
-    nano_total = await nano_store.count("", 0, "", None)
+    return _xml_response(_sitemap_index_xml([f"{base}/items/sitemap.xml", f"{base}/nanos/sitemap.xml"]))
 
+
+@router.get("/items/sitemap.xml", include_in_schema=False)
+async def sitemap_items_index(request: Request) -> Response:
+    base = str(request.base_url).rstrip("/")
+    item_total = await store.count("", 0)
     locs = [f"{base}/items/sitemap-{n}.xml" for n in range(_chunk_count(item_total))]
-    locs += [f"{base}/nanos/sitemap-{n}.xml" for n in range(_chunk_count(nano_total))]
+    return _xml_response(_sitemap_index_xml(locs))
+
+
+@router.get("/nanos/sitemap.xml", include_in_schema=False)
+async def sitemap_nanos_index(request: Request) -> Response:
+    base = str(request.base_url).rstrip("/")
+    nano_total = await nano_store.count("", 0, "", None)
+    locs = [f"{base}/nanos/sitemap-{n}.xml" for n in range(_chunk_count(nano_total))]
     return _xml_response(_sitemap_index_xml(locs))
 
 
