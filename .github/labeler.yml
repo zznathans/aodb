@@ -1,40 +1,29 @@
 api:
   - changed-files:
-      - any-glob-to-any-file:
-          - "api/**
+  - any-glob-to-any-file:
+      - 'api/**'
 
-tests:
+chart:
   - changed-files:
-      - any-glob-to-any-file:
-          - "api/tests/**"
-          - "chart/tests/**"
+    - any-glob-to-any-file:
+      - 'chart/**'
 
-docker:
+docs:
   - changed-files:
-      - any-glob-to-any-file:
-          - "api/Dockerfile"
-          - "api/.dockerignore"
-
-
-dependencies:
-  - changed-files:
-      - any-glob-to-any-file:
-          - "api/requirements.txt"
-          - "api/requirements-dev.txt"
-
-helm:
-  - changed-files:
-      - any-glob-to-any-file:
-          - "chart/**"
+    - any-glob-to-any-file:
+      - 'docs/**'
 
 scripts:
   - changed-files:
-      - any-glob-to-any-file: "scripts/**"
+    - any-glob-to-any-file:
+      - 'scripts/**'
+
+deps:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'requirements*'
 
 ci:
   - changed-files:
-      - any-glob-to-any-file: ".github/**"
-
-documentation:
-  - changed-files:
-      - any-glob-to-any-file: "**/*.md"
+    - any-glob-to-any-file:
+      - '.github/**'
