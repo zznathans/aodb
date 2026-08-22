@@ -22,6 +22,18 @@ dedicated Redis instance instead (via the
 already be installed in the target cluster). `aodbApi.redisUrl` always
 takes precedence when set.
 
+The app is migrating over to MongoDB as its authoritative data store; this
+isn't wired into the app itself yet, but the chart already provisions it,
+on by default (`aodbApi.mongo.enabled`), via the
+[mongodb-kubernetes-operator](https://github.com/mongodb/mongodb-kubernetes-operator)
+`MongoDBCommunity` custom resource - the operator's CRDs must already be
+installed in the target cluster, and `aodbApi.mongo.password` (or
+`aodbApi.mongo.existingSecret`) must be set. Set `aodbApi.mongoUrl`
+instead to point at an externally-provisioned instance - it always takes
+precedence when set - or set `aodbApi.mongo.enabled=false` to skip
+MongoDB entirely for now. Either way the pod gets a `MONGO_URL` env var
+whenever one of the two is configured.
+
 Client-side analytics (e.g. a Cloudflare Web Analytics beacon or Google
 Analytics tag - see the app's own README) aren't in the published image at
 all, since the file that carries them is gitignored. Set
@@ -35,7 +47,8 @@ a ConfigMap and mounts it into the pod for you - no image rebuild needed.
 ```
 helm lint chart --strict \
   --set aodbApi.dumpUrl=https://example.invalid/dump.xml.zip \
-  --set aodbApi.redisUrl=redis://example-redis:6379/0
+  --set aodbApi.redisUrl=redis://example-redis:6379/0 \
+  --set aodbApi.mongo.password=example-password
 helm unittest chart
 ```
 

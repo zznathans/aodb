@@ -11,3 +11,11 @@ redis://{{ include "aodb.redisName" . }}.{{ .Release.Namespace }}.svc.cluster.lo
 {{ fail "aodbApi.redisUrl is required (or set aodbApi.redis.enabled=true to deploy a bundled Redis)" }}
 {{- end -}}
 {{- end }}
+
+{{- define "aodb.mongoName" -}}
+{{ .Release.Name }}-mongodb
+{{- end }}
+
+{{- define "aodb.mongoConnectionStringSecretName" -}}
+{{ include "aodb.mongoName" . }}-admin-{{ .Values.aodbApi.mongo.username }}
+{{- end }}

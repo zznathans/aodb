@@ -1,0 +1,128 @@
+suite: mongodb
+templates:
+  - mongodb.yaml
+tests:
+  - it: renders nothing when mongo.enabled is explicitly set to false
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongo.enabled: false
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders a Secret and MongoDBCommunity CR by default (mongo.enabled defaults to true)
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongo.password: hunter2
+    asserts:
+      - hasDocuments:
+          count: 2
+      - documentIndex: 0
+        isKind:
+          of: Secret
+      - documentIndex: 0
+        equal:
+          path: metadata.name
+          value: RELEASE-NAME-mongodb-password
+      - documentIndex: 0
+        equal:
+          path: stringData.password
+          value: hunter2
+      - documentIndex: 1
+        isKind:
+          of: MongoDBCommunity
+      - documentIndex: 1
+        equal:
+          path: metadata.name
+          value: RELEASE-NAME-mongodb
+
+  - it: fails when mongo.enabled is true and neither password nor existingSecret is set
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongo.enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "aodbApi.mongo.password is required when aodbApi.mongo.existingSecret is unset"
+
+  - it: does not render a Secret when existingSecret is set
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongo.enabled: true
+      aodbApi.mongo.existingSecret: my-mongo-password
+    asserts:
+      - hasDocuments:
+          count: 1
+      - documentIndex: 0
+        isKind:
+          of: MongoDBCommunity
+      - documentIndex: 0
+        equal:
+          path: spec.users[0].passwordSecretRef.name
+          value: my-mongo-password
+      - documentIndex: 0
+        equal:
+          path: spec.users[0].passwordSecretRef.key
+          value: password
+
+  - it: passes existingSecretPasswordKey through when existingSecret is set
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongo.enabled: true
+      aodbApi.mongo.existingSecret: my-mongo-password
+      aodbApi.mongo.existingSecretPasswordKey: mongo-password
+    asserts:
+      - documentIndex: 0
+        equal:
+          path: spec.users[0].passwordSecretRef.key
+          value: mongo-password
+
+  - it: passes members, version, database, and username through from values
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongo.enabled: true
+      aodbApi.mongo.password: hunter2
+      aodbApi.mongo.members: 3
+      aodbApi.mongo.version: "6.0.5"
+      aodbApi.mongo.database: mydb
+      aodbApi.mongo.username: myuser
+    asserts:
+      - documentIndex: 1
+        equal:
+          path: spec.members
+          value: 3
+      - documentIndex: 1
+        equal:
+          path: spec.version
+          value: "6.0.5"
+      - documentIndex: 1
+        equal:
+          path: spec.users[0].name
+          value: myuser
+      - documentIndex: 1
+        equal:
+          path: spec.users[0].roles[0].db
+          value: mydb
+
+  - it: passes resources and storage size through from values
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongo.enabled: true
+      aodbApi.mongo.password: hunter2
+      aodbApi.mongo.resources.limits.memory: 1Gi
+      aodbApi.mongo.storage.size: 20Gi
+    asserts:
+      - documentIndex: 1
+        equal:
+          path: spec.statefulSet.spec.template.spec.containers[0].resources.limits.memory
+          value: 1Gi
+      - documentIndex: 1
+        equal:
+          path: spec.statefulSet.spec.volumeClaimTemplates[0].spec.resources.requests.storage
+          value: 20Gi

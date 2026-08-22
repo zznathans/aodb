@@ -56,7 +56,8 @@ jobs:
         run: |
           helm lint chart --strict \
             --set aodbApi.dumpUrl=https://example.invalid/dump.xml.zip \
-            --set aodbApi.redisUrl=redis://example-redis:6379/0
+            --set aodbApi.redisUrl=redis://example-redis:6379/0 \
+            --set aodbApi.mongo.password=example-password
 
   helm-unittest:
     name: Helm unit tests
