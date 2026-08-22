@@ -55,6 +55,7 @@ jobs:
           helm template chart \
             --set aodbApi.dumpUrl=https://example.invalid/dump.xml.zip \
             --set aodbApi.redisUrl=redis://example-redis:6379/0 \
+            --set aodbApi.mongo.password=example-password \
             > rendered.yaml
 
       # --output doesn't reliably write to disk under --format=template
