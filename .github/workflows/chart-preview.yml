@@ -1,12 +1,14 @@
 name: Chart Preview
 
 # Publishes a throwaway OCI chart artifact for every push to a PR that
-# touches the chart, tagged uniquely to that push (base Chart.yaml version
-# + PR number + short SHA) so it can be pulled and tested directly - e.g.
-# to try a chart change against a real cluster before it merges - without
-# waiting for an actual release. Independent of chart-publish.yml, which
-# only fires on published GitHub releases and always uses the real
-# Chart.yaml version.
+# touches the chart, tagged to the PR itself (base Chart.yaml version + PR
+# number) rather than the individual commit - each push overwrites the
+# same tag, so anything already tracking it (e.g. an Argo CD Application
+# pinned to that tag) picks up the latest push without being repointed.
+# Lets a chart change be pulled and tested against a real cluster before
+# it merges, without waiting for an actual release. Independent of
+# chart-publish.yml, which only fires on published GitHub releases and
+# always uses the real Chart.yaml version.
 on:
   pull_request:
     paths:
@@ -50,10 +52,11 @@ jobs:
         run: |
           set -euo pipefail
           base_version=$(sed -n 's/^version: *//p' chart/Chart.yaml)
-          # Both identifiers need to be valid semver pre-release
-          # components (alphanumeric, no leading-zero numerics) - "pr129"
-          # and a short hex SHA both qualify as-is.
-          preview_version="${base_version}-pr${{ github.event.pull_request.number }}.$(git rev-parse --short HEAD)"
+          # "pr129" is a valid semver pre-release component (alphanumeric,
+          # no leading-zero numerics) as-is. Deliberately no commit SHA in
+          # here - see the workflow-level comment above on why this tag
+          # needs to stay stable across pushes to the same PR.
+          preview_version="${base_version}-pr${{ github.event.pull_request.number }}"
           echo "version=$preview_version" >> "$GITHUB_OUTPUT"
           helm package chart -d /tmp/chart-out --version "$preview_version" --app-version "$preview_version"
           helm push /tmp/chart-out/aodb-*.tgz oci://ghcr.io/zznathans/aodb/charts
@@ -71,7 +74,7 @@ jobs:
           marker="<!-- chart-preview-comment -->"
           body="$(cat <<EOF
           $marker
-          Preview chart published for \`$(git rev-parse --short HEAD)\`:
+          Preview chart updated at \`$(git rev-parse --short HEAD)\` - same tag on every push to this PR, so re-pulling picks up the latest:
 
           \`\`\`
           helm upgrade --install aodb oci://ghcr.io/zznathans/aodb/charts/aodb --version $CHART_VERSION
