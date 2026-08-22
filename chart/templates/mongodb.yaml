@@ -34,8 +34,9 @@ spec:
         - name: readWrite
           db: {{ .Values.aodbApi.mongo.database }}
       # The operator publishes the resulting connection strings into a Secret named
-      # "<mongoName>-<username>-admin" (aodb.mongoConnectionStringSecretName) - the "admin"
-      # suffix comes from this user's auth db above, not the database it has roles on.
+      # "<mongoName>-admin-<username>" (aodb.mongoConnectionStringSecretName) - confirmed
+      # live against the actual operator output, not just its docs. The "admin" here is
+      # this user's auth db above, not the database it has roles on.
       scramCredentialsSecretName: {{ include "aodb.mongoName" . }}-scram
   statefulSet:
     spec:

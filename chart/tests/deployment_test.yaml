@@ -122,7 +122,7 @@ tests:
           value: MONGO_URL
       - equal:
           path: spec.template.spec.containers[0].env[2].valueFrom.secretKeyRef.name
-          value: RELEASE-NAME-mongodb-aodb-admin
+          value: RELEASE-NAME-mongodb-admin-aodb
       - equal:
           path: spec.template.spec.containers[0].env[2].valueFrom.secretKeyRef.key
           value: connectionString.standard

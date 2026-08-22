@@ -17,5 +17,5 @@ redis://{{ include "aodb.redisName" . }}.{{ .Release.Namespace }}.svc.cluster.lo
 {{- end }}
 
 {{- define "aodb.mongoConnectionStringSecretName" -}}
-{{ include "aodb.mongoName" . }}-{{ .Values.aodbApi.mongo.username }}-admin
+{{ include "aodb.mongoName" . }}-admin-{{ .Values.aodbApi.mongo.username }}
 {{- end }}
