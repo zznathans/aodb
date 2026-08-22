@@ -1,0 +1,56 @@
+{{- if .Values.aodbApi.mongo.enabled }}
+{{- if not .Values.aodbApi.mongo.existingSecret }}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "aodb.mongoName" . }}-password
+  namespace: {{ .Release.Namespace }}
+type: Opaque
+stringData:
+  password: {{ required "aodbApi.mongo.password is required when aodbApi.mongo.existingSecret is unset" .Values.aodbApi.mongo.password | quote }}
+---
+{{- end }}
+apiVersion: mongodbcommunity.mongodb.com/v1
+kind: MongoDBCommunity
+metadata:
+  name: {{ include "aodb.mongoName" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  # The community operator only supports the ReplicaSet deployment type - even a single member
+  # still runs as a one-node replica set.
+  type: ReplicaSet
+  members: {{ .Values.aodbApi.mongo.members }}
+  version: {{ .Values.aodbApi.mongo.version | quote }}
+  security:
+    authentication:
+      modes: ["SCRAM"]
+  users:
+    - name: {{ .Values.aodbApi.mongo.username }}
+      db: admin
+      passwordSecretRef:
+        name: {{ if .Values.aodbApi.mongo.existingSecret }}{{ .Values.aodbApi.mongo.existingSecret }}{{ else }}{{ include "aodb.mongoName" . }}-password{{ end }}
+        key: {{ if .Values.aodbApi.mongo.existingSecret }}{{ .Values.aodbApi.mongo.existingSecretPasswordKey }}{{ else }}password{{ end }}
+      roles:
+        - name: readWrite
+          db: {{ .Values.aodbApi.mongo.database }}
+      # The operator publishes the resulting connection strings into a Secret named
+      # "<mongoName>-<username>-admin" (aodb.mongoConnectionStringSecretName) - the "admin"
+      # suffix comes from this user's auth db above, not the database it has roles on.
+      scramCredentialsSecretName: {{ include "aodb.mongoName" . }}-scram
+  statefulSet:
+    spec:
+      volumeClaimTemplates:
+        - metadata:
+            name: data-volume
+          spec:
+            accessModes: ["ReadWriteOnce"]
+            resources:
+              requests:
+                storage: {{ .Values.aodbApi.mongo.storage.size }}
+      template:
+        spec:
+          containers:
+            - name: mongod
+              resources:
+                {{- toYaml .Values.aodbApi.mongo.resources | nindent 16 }}
+{{- end }}

@@ -83,6 +83,68 @@ aodbApi:
       # -- Scrape interval for the Redis metrics ServiceMonitor.
       interval: 30s
 
+  # -- Connection URL for a MongoDB instance the app will use as an authoritative data store once
+  # it migrates over from Redis (see the app's own README) - e.g.
+  # mongodb://user:password@my-mongo:27017/aodb?authSource=admin. Not yet consumed by the app
+  # itself - setting this (or aodbApi.mongo.enabled) only wires MONGO_URL into the pod ahead of
+  # that migration. Takes precedence over aodbApi.mongo.enabled if both are set. Leave unset (and
+  # set aodbApi.mongo.enabled=true) to use the chart's own bundled MongoDB instead of pointing at
+  # an externally-provisioned one.
+  mongoUrl: ""
+
+  mongo:
+    # -- Deploy a bundled MongoDB instance (via the mongodb-kubernetes-operator
+    # `MongoDBCommunity` custom resource) alongside this app, instead of requiring an
+    # externally-provisioned aodbApi.mongoUrl. Requires the mongodb-kubernetes-operator CRDs to
+    # already be installed in the target cluster. On by default, since every install is meant to
+    # start provisioning its authoritative MongoDB store as part of the app's migration onto it -
+    # set aodbApi.mongo.password (or aodbApi.mongo.existingSecret) alongside this, and set this
+    # to false explicitly if you'd rather point aodbApi.mongoUrl at an externally-provisioned
+    # instance instead.
+    enabled: true
+
+    # -- Number of replica set members for the bundled MongoDB instance. The community operator
+    # only supports the ReplicaSet deployment type (no standalone), so even a single member still
+    # runs as a one-node replica set.
+    members: 1
+
+    # -- MongoDB server version for the bundled instance.
+    version: "7.0.14"
+
+    # -- Database name the app user is granted readWrite on, and the default auth database used
+    # in the generated connection string.
+    database: aodb
+
+    # -- Username for the app's MongoDB user.
+    username: aodb
+
+    # -- Name of an existing Secret containing the app user's password, under the key named by
+    # aodbApi.mongo.existingSecretPasswordKey. Leave unset to have the chart generate its own
+    # Secret from aodbApi.mongo.password instead.
+    existingSecret: ""
+
+    # -- Key within aodbApi.mongo.existingSecret that holds the password. Ignored unless
+    # aodbApi.mongo.existingSecret is set.
+    existingSecretPasswordKey: password
+
+    # -- Password for the app's MongoDB user. Only used (and required) when
+    # aodbApi.mongo.existingSecret is unset - rendered into a chart-managed Secret rather than
+    # committed anywhere. Prefer aodbApi.mongo.existingSecret in production.
+    password: ""
+
+    # -- Resource requests and limits for the bundled MongoDB instance's mongod container.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+    storage:
+      # -- Size of the PersistentVolumeClaim provisioned for the bundled MongoDB instance.
+      size: 5Gi
+
   # -- Number of pod replicas. Safe to run more than one - each replica independently loads its
   # own in-memory copy of the dump from dumpUrl on startup, no shared state between them.
   replicaCount: 1

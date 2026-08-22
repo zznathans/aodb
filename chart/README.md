@@ -22,6 +22,18 @@ dedicated Redis instance instead (via the
 already be installed in the target cluster). `aodbApi.redisUrl` always
 takes precedence when set.
 
+The app is migrating over to MongoDB as its authoritative data store; this
+isn't wired into the app itself yet, but the chart already provisions it,
+on by default (`aodbApi.mongo.enabled`), via the
+[mongodb-kubernetes-operator](https://github.com/mongodb/mongodb-kubernetes-operator)
+`MongoDBCommunity` custom resource - the operator's CRDs must already be
+installed in the target cluster, and `aodbApi.mongo.password` (or
+`aodbApi.mongo.existingSecret`) must be set. Set `aodbApi.mongoUrl`
+instead to point at an externally-provisioned instance - it always takes
+precedence when set - or set `aodbApi.mongo.enabled=false` to skip
+MongoDB entirely for now. Either way the pod gets a `MONGO_URL` env var
+whenever one of the two is configured.
+
 Client-side analytics (e.g. a Cloudflare Web Analytics beacon or Google
 Analytics tag - see the app's own README) aren't in the published image at
 all, since the file that carries them is gitignored. Set
@@ -38,7 +50,18 @@ a ConfigMap and mounts it into the pod for you - no image rebuild needed.
 | aodbApi.extraObjects | list | `[]` | Raw Kubernetes objects to render alongside chart-managed resources. |
 | aodbApi.imagePullSecrets | list | `[]` | List of image pull secret names to attach to the ServiceAccount. Leave empty if the registry is public. |
 | aodbApi.imageRepository | string | `"ghcr.io/zznathans/aodb"` | Container image registry and repository for the aodb-api image. |
-| aodbApi.imageTag | string | `"1.5.3"` | Image tag to deploy. |
+| aodbApi.imageTag | string | `"1.7.0"` | Image tag to deploy. |
+| aodbApi.mongo.database | string | `"aodb"` | Database name the app user is granted readWrite on, and the default auth database used in the generated connection string. |
+| aodbApi.mongo.enabled | bool | `true` | Deploy a bundled MongoDB instance (via the mongodb-kubernetes-operator `MongoDBCommunity` custom resource) alongside this app, instead of requiring an externally-provisioned aodbApi.mongoUrl. Requires the mongodb-kubernetes-operator CRDs to already be installed in the target cluster. On by default, since every install is meant to start provisioning its authoritative MongoDB store as part of the app's migration onto it - set aodbApi.mongo.password (or aodbApi.mongo.existingSecret) alongside this, and set this to false explicitly if you'd rather point aodbApi.mongoUrl at an externally-provisioned instance instead. |
+| aodbApi.mongo.existingSecret | string | `""` | Name of an existing Secret containing the app user's password, under the key named by aodbApi.mongo.existingSecretPasswordKey. Leave unset to have the chart generate its own Secret from aodbApi.mongo.password instead. |
+| aodbApi.mongo.existingSecretPasswordKey | string | `"password"` | Key within aodbApi.mongo.existingSecret that holds the password. Ignored unless aodbApi.mongo.existingSecret is set. |
+| aodbApi.mongo.members | int | `1` | Number of replica set members for the bundled MongoDB instance. The community operator only supports the ReplicaSet deployment type (no standalone), so even a single member still runs as a one-node replica set. |
+| aodbApi.mongo.password | string | `""` | Password for the app's MongoDB user. Only used (and required) when aodbApi.mongo.existingSecret is unset - rendered into a chart-managed Secret rather than committed anywhere. Prefer aodbApi.mongo.existingSecret in production. |
+| aodbApi.mongo.resources | object | `{"limits":{"cpu":"500m","memory":"512Mi"},"requests":{"cpu":"100m","memory":"256Mi"}}` | Resource requests and limits for the bundled MongoDB instance's mongod container. |
+| aodbApi.mongo.storage.size | string | `"5Gi"` | Size of the PersistentVolumeClaim provisioned for the bundled MongoDB instance. |
+| aodbApi.mongo.username | string | `"aodb"` | Username for the app's MongoDB user. |
+| aodbApi.mongo.version | string | `"7.0.14"` | MongoDB server version for the bundled instance. |
+| aodbApi.mongoUrl | string | `""` | Connection URL for a MongoDB instance the app will use as an authoritative data store once it migrates over from Redis (see the app's own README) - e.g. mongodb://user:password@my-mongo:27017/aodb?authSource=admin. Not yet consumed by the app itself - setting this (or aodbApi.mongo.enabled) only wires MONGO_URL into the pod ahead of that migration. Takes precedence over aodbApi.mongo.enabled if both are set. Leave unset (and set aodbApi.mongo.enabled=true) to use the chart's own bundled MongoDB instead of pointing at an externally-provisioned one. |
 | aodbApi.podAnnotations | object | `{}` | Extra annotations to add to the pod template (e.g. for a service mesh sidecar injector or a config-reload trigger). |
 | aodbApi.podLabels | object | `{}` | Extra labels to add to the pod template, in addition to the chart-managed `app` label. |
 | aodbApi.redis.enabled | bool | `false` | Deploy a bundled Redis instance (via the OT-CONTAINER-KIT/redis-operator `Redis` custom resource, standalone mode only) alongside this app, instead of requiring an externally-provisioned aodbApi.redisUrl. Requires the redis-operator CRDs to already be installed in the target cluster. Off by default: enabling this for an existing installation that already points aodbApi.redisUrl at its own Redis would otherwise start deploying an unwanted, unused second Redis instance. |
@@ -65,14 +88,15 @@ a ConfigMap and mounts it into the pod for you - no image rebuild needed.
 ```
 helm lint chart --strict \
   --set aodbApi.dumpUrl=https://example.invalid/dump.xml.zip \
-  --set aodbApi.redisUrl=redis://example-redis:6379/0
+  --set aodbApi.redisUrl=redis://example-redis:6379/0 \
+  --set aodbApi.mongo.password=example-password
 helm unittest chart
 ```
 
 Every `vX.Y.Z` release (shared with the app - see the top-level README's
-"Releases" section) gets the packaged `.tgz` attached as a release asset
-and published two ways (see `.github/workflows/release.yml`'s
-`publish-chart` job):
+"Releases" section) gets the chart packaged and published two ways, from
+`chart-publish.yml` (triggered by the version-bump commit `release.yml`
+pushes to main once a release cuts):
 
 As an OCI artifact at `oci://ghcr.io/zznathans/aodb/charts` - same
 registry/namespace as the app image, no `helm repo add` needed, the
