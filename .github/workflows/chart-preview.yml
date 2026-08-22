@@ -1,0 +1,86 @@
+name: Chart Preview
+
+# Publishes a throwaway OCI chart artifact for every push to a PR that
+# touches the chart, tagged uniquely to that push (base Chart.yaml version
+# + PR number + short SHA) so it can be pulled and tested directly - e.g.
+# to try a chart change against a real cluster before it merges - without
+# waiting for an actual release. Independent of chart-publish.yml, which
+# only fires on published GitHub releases and always uses the real
+# Chart.yaml version.
+on:
+  pull_request:
+    paths:
+      - "chart/**"
+
+# Least-privilege default; the job below grants itself only what it
+# actually needs.
+permissions: {}
+
+# One preview per PR at a time - an in-flight push superseded by a newer
+# one on the same PR would otherwise race it for the same registry
+# namespace and just waste the push.
+concurrency:
+  group: chart-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  publish-preview:
+    name: Publish preview chart
+    runs-on: ubuntu-latest
+    # Fork PRs run with a read-only GITHUB_TOKEN (no packages:write) and
+    # no access to this repo's package namespace either way - skip rather
+    # than fail.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+        with:
+          version: "3.17.0"
+
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Package and push preview chart
+        id: package
+        run: |
+          set -euo pipefail
+          base_version=$(sed -n 's/^version: *//p' chart/Chart.yaml)
+          # Both identifiers need to be valid semver pre-release
+          # components (alphanumeric, no leading-zero numerics) - "pr129"
+          # and a short hex SHA both qualify as-is.
+          preview_version="${base_version}-pr${{ github.event.pull_request.number }}.$(git rev-parse --short HEAD)"
+          echo "version=$preview_version" >> "$GITHUB_OUTPUT"
+          helm package chart -d /tmp/chart-out --version "$preview_version" --app-version "$preview_version"
+          helm push /tmp/chart-out/aodb-*.tgz oci://ghcr.io/zznathans/aodb/charts
+
+      # Edits the same comment on repeat pushes (matched by the marker)
+      # instead of piling up a new one each time.
+      - name: Comment the install command on the PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          CHART_VERSION: ${{ steps.package.outputs.version }}
+        run: |
+          set -euo pipefail
+          marker="<!-- chart-preview-comment -->"
+          body="$(cat <<EOF
+          $marker
+          Preview chart published for \`$(git rev-parse --short HEAD)\`:
+
+          \`\`\`
+          helm upgrade --install aodb oci://ghcr.io/zznathans/aodb/charts/aodb --version $CHART_VERSION
+          \`\`\`
+          EOF
+          )"
+          existing_id=$(gh api "repos/$REPO/issues/$PR_NUMBER/comments" --jq ".[] | select(.body | startswith(\"$marker\")) | .id" | head -n1)
+          if [ -n "$existing_id" ]; then
+            gh api -X PATCH "repos/$REPO/issues/comments/$existing_id" -f body="$body"
+          else
+            gh pr comment "$PR_NUMBER" --repo "$REPO" --body "$body"
+          fi
