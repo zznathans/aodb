@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **CI** | [![API CI](https://github.com/zznathans/aodb/actions/workflows/api-ci.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/api-ci.yml) [![Chart CI](https://github.com/zznathans/aodb/actions/workflows/chart-ci.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/chart-ci.yml) [![Docker CI](https://github.com/zznathans/aodb/actions/workflows/docker.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/docker.yml) |
+| **CI** | [![Chart CI](https://github.com/zznathans/aodb/actions/workflows/chart-ci.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/chart-ci.yml) [![Docker CI](https://github.com/zznathans/aodb/actions/workflows/docker.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/docker.yml) |
 | **Tests** | [![Coverage Status](https://coveralls.io/repos/github/zznathans/aodb/badge.svg?branch=main)](https://coveralls.io/github/zznathans/aodb?branch=main) |
 | **Security** | [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/zznathans/aodb/badge)](https://scorecard.dev/viewer/?uri=github.com/zznathans/aodb) |
 | **Version** | [![Release](https://github.com/zznathans/aodb/actions/workflows/release.yml/badge.svg)](https://github.com/zznathans/aodb/actions/workflows/release.yml) [![Latest](https://img.shields.io/github/v/tag/zznathans/aodb?sort=semver)](https://github.com/zznathans/aodb/releases) |
