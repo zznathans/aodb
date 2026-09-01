@@ -24,7 +24,7 @@ anyio==4.14.2 \
 api-analytics[fastapi]==1.2.7 \
     --hash=sha256:e885aaf819b052fe2dc41f256f23e671f4696c7b23af6b3c5c3acdc7b81821ea \
     --hash=sha256:eaff6c5d20457dec7fb95c54a0c45bbc7e0d7fdabfb5300e0ffce61a49808755
-    # via -r api/requirements.in
+    # via -r requirements.in
 certifi==2026.7.22 \
     --hash=sha256:62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775 \
     --hash=sha256:741e2c3b351ddf169a738da9f2c048608ff7f2c5cc02f1ebc6b118bb090d5d55
@@ -353,12 +353,12 @@ email-validator==2.3.0 \
 fakeredis==2.37.1 \
     --hash=sha256:9045851b0a9fe56312696aadc82435141aa43a193cab462d372c8fb583a7c087 \
     --hash=sha256:f15c41be151c1e9206416dece764369a4dedb6b1341df3734c3c2c000e405508
-    # via -r api/requirements-dev.in
+    # via -r requirements-dev.in
 fastapi[standard]==0.141.1 \
     --hash=sha256:bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3 \
     --hash=sha256:e8822fc40db1e1858054d7a949a888695bc9bdce70139178e33bd2871a453ca1
     # via
-    #   -r api/requirements.in
+    #   -r requirements.in
     #   api-analytics
 fastapi-cli[standard]==0.0.32 \
     --hash=sha256:38024d2345275e1b37ce8848727a580d84901b570e96b3256d9d36a9a5039424 \
@@ -577,7 +577,7 @@ httpx==0.28.1 \
     --hash=sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc \
     --hash=sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad
     # via
-    #   -r api/requirements-dev.in
+    #   -r requirements-dev.in
     #   fastapi
     #   fastapi-cloud-cli
 idna==3.18 \
@@ -596,7 +596,7 @@ jinja2==3.1.6 \
     --hash=sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d \
     --hash=sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67
     # via
-    #   -r api/requirements.in
+    #   -r requirements.in
     #   fastapi
 markdown-it-py==4.2.0 \
     --hash=sha256:04a21681d6fbb623de53f6f364d352309d4094dd4194040a10fd51833e418d49 \
@@ -855,17 +855,17 @@ pytest==9.1.1 \
     --hash=sha256:1088fbde8f2b49d95a549a195707afa7a76a3ce9bcadc26b6d71f0ffda5fe313 \
     --hash=sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c
     # via
-    #   -r api/requirements-dev.in
+    #   -r requirements-dev.in
     #   pytest-asyncio
     #   pytest-cov
 pytest-asyncio==1.4.0 \
     --hash=sha256:933ca923a23075a87fb7070c0ec272a6848489824d887c85c812670932835aa1 \
     --hash=sha256:c6c0d2259945122819f171a32ecea2c349ead889ee28176caaf492143424be42
-    # via -r api/requirements-dev.in
+    # via -r requirements-dev.in
 pytest-cov==7.1.0 \
     --hash=sha256:30674f2b5f6351aa09702a9c8c364f6a01c27aae0c1366ae8016160d1efc56b2 \
     --hash=sha256:a0461110b7865f9a271aa1b51e516c9a95de9d696734a2f71e3e78f46e1d4678
-    # via -r api/requirements-dev.in
+    # via -r requirements-dev.in
 python-dotenv==1.2.2 \
     --hash=sha256:1d8214789a24de455a8b8bd8ae6fe3c6b69a5e3d64aa8a8e5d68e694bbcb285a \
     --hash=sha256:2c371a91fbd7ba082c2c1dc1f8bf89ca22564a087c2c287cd9b662adde799cf3
@@ -955,7 +955,7 @@ redis==8.1.0 \
     --hash=sha256:6e1a19beef9225c83efd689c7e6b7da2d5215b1f42cd13b7fc3714d0a09c7b25 \
     --hash=sha256:a4fe1aac3d3b3cc791d4b3d5931c5a956045dc951ee74d1c913ee3ac4d2ee9fb
     # via
-    #   -r api/requirements.in
+    #   -r requirements.in
     #   fakeredis
 requests==2.34.2 \
     --hash=sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0 \
@@ -1146,26 +1146,26 @@ rignore==0.8.1 \
     --hash=sha256:fe7a7dcd84affbf312336991202c11922c13aff323e2857c5baf10afc0dd7f2d \
     --hash=sha256:ff09db59f672d929bca88ee7089d3697256967df76a2bab8b187208f2b517bc0
     # via fastapi-cloud-cli
-ruff==0.16.2 \
-    --hash=sha256:20e66910f2c37cc753f9ef6580c914a621b80c4fa3549d3e3521e29d0f5bfc3f \
-    --hash=sha256:335c621622c4650330be50842561c6586ac6971bb8ab5407fe34dcc9efb16bbe \
-    --hash=sha256:3c8de4cf2181f01d57946d87d777aa52916976fc09942aed89938fab5e013318 \
-    --hash=sha256:40ea8c0594feb894e89c8c61ab9c103d38b0ea72dfde6c594107147ca31b1140 \
-    --hash=sha256:4ce4e02bad779bef557f541a1b31f20d6abeae1cc05ed1b1ac019d4ffd1044c8 \
-    --hash=sha256:81806b08329130005dd4a8a8394a0c9da8c6f4cafb16ba438d2a2ee6a18bedf1 \
-    --hash=sha256:9a48cc05c6fbc811ca81b5d7ba95375affea6582d1b8024e455e41afbbf55344 \
-    --hash=sha256:a2c0d14fcbb26c91f0f867a6dc9bd71bbc30b1b6151829c884f23faeab2e5700 \
-    --hash=sha256:ab3d62dde0b19facdd632008cc4827fc28ada7736c6bd35ab6f1050f0bfed53f \
-    --hash=sha256:bcabe2f6d0fc7819f1431793005af4e4de7371927d037345bf941252b195b9fa \
-    --hash=sha256:bf3a63d78fb39f4bf5ac8ae52051c5520505301abe19ba4e204c453b3f09bb0b \
-    --hash=sha256:c24788a980581e1d7ea3a0cbe4344c4fbeb0a6a9b1f4713aa46bb104f8294690 \
-    --hash=sha256:c3d7828d12e8927a6fc65fe38e2c2541b9e762d360a1786d752cb1b8883b3c9c \
-    --hash=sha256:c7e36fbfba65510548156902bcf1350a979a958ce0347ce0f90d73894036b39f \
-    --hash=sha256:d614e95cedf38a2053fd351c55b103ba30d017d61688fdbfd40ee0412852a99f \
-    --hash=sha256:e0422abdf70070255fc4073ce9dfc814cc03db577013761ddd09bc1e4a9a4fbd \
-    --hash=sha256:e43e1f5b8388da9eca1b9e88328d47a5cec794633ccf6f7484ac2dd15eee92c0 \
-    --hash=sha256:f0eab35f80df8f134aae5d1630e751901321d317cc8e50dc39e36fa3ed34cd12
-    # via -r api/requirements-dev.in
+ruff==0.16.5 \
+    --hash=sha256:0eeab41fbea2c42f98dfb9822cdccda9d24ba38d49f6dc945b5c236d48f0ef29 \
+    --hash=sha256:12e5f673e774c35fbb62f288809c7653b73445f8ecec6b6063fd6ea3521aa14b \
+    --hash=sha256:1b88500f9ffbcab3dedb0082c9f9492e91ec3d618aac1236a3e0189938f7040b \
+    --hash=sha256:2298f2780ed1be0c5cb1361e32ab7b1467f3cce7dabe101d2210a314f2fe42e9 \
+    --hash=sha256:258f29035a2dd021e7861e631b227a5b3f14e50c1184c9a6a122c5f4576154d7 \
+    --hash=sha256:288b0a5f080492fe5635db849f9e2e84aa3cce7b7f0e955997d416c507c76a26 \
+    --hash=sha256:7b719b0a1f4d59710d283ab2965f621684a108a9e41da622e3b23f0326cd0025 \
+    --hash=sha256:95cc70cdc7aa80c338de356279d2adbeb2de0f520b9ecd8aba75b94e95e02f91 \
+    --hash=sha256:a64abe90968719b851bb7cedffaa8753fbdbdadab483089682db623f3edc587e \
+    --hash=sha256:b5eb3a8c3d0ade9cea42b591fd530368e8798380e30e0a308b85a5cf718f09ea \
+    --hash=sha256:b9a4f0432966834019c74d1b7e5c51224305d7713f3d7faf3e7451f1a3be3cde \
+    --hash=sha256:c5ae9a7b9a8875131f40f8fe967cc86abf899779efd663cb7ce3d572d01da7eb \
+    --hash=sha256:d185c8398ded1bfd91c0c2cb258346307571eccc473a8490af8c3977399c384a \
+    --hash=sha256:ddc6385fb2137f616357ca03d6c74f4be987f80fed4008566b754f6032b8546f \
+    --hash=sha256:eda58a5802de40e7ed5b32b64e0b32539338cc6fcd2c78f61e3ad6a0d79f51c3 \
+    --hash=sha256:ef0f69e191a13a3c9816f63163c88790cb12cd157bbbb384e9c44745702ab105 \
+    --hash=sha256:f0768e9df4300713fff30733c87575f68b6f1d8de41184e505b7fdd9c0c95eaf \
+    --hash=sha256:fb8e3a3c4c6a784150a7ced53b015f4b253fc2bf97a610886419ead64b4756ef
+    # via -r requirements-dev.in
 sentry-sdk==2.68.0 \
     --hash=sha256:538e56c2d03679d42f7c0cb5f1af73a7a510b00abc7e296c13ac49b107b713a4 \
     --hash=sha256:648c58e9887311a03470a41539e24bdbbf64a30ca4f5336f7e3dcc87276400b3
