@@ -111,7 +111,7 @@ aodbApi:
   # -- Container image registry and repository for the aodb-api image.
   imageRepository: ghcr.io/zznathans/aodb
   # -- Image tag to deploy.
-  imageTag: "1.7.1"
+  imageTag: "1.7.2"
   # -- List of image pull secret names to attach to the ServiceAccount. Leave empty if the registry is public.
   imagePullSecrets: []
 
