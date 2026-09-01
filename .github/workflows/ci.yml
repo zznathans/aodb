@@ -5,8 +5,10 @@ name: CI
 # push[main]: nothing should ever land on main without having gone through
 # a PR that already ran these same checks, so re-running again on the
 # post-merge push would just re-verify code that already passed.
-on:
   pull_request:
+    paths:
+      - 'chart/**'
+      - 'api/**'
 
 # check-pr below only guards *subsequent* pushes to a branch that already
 # has an open PR -- the very first push fires immediately, before the PR
