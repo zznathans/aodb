@@ -51,5 +51,6 @@ jobs:
             @semantic-release/exec
             @semantic-release/git
             @semantic-release-plus/docker
+            @qiwi/semantic-release-gh-pages-plugin
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
