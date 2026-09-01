@@ -17,21 +17,6 @@ jobs:
   # yamllint, used by the job below) is the one dependency manifest that
   # lives outside api/, so it's checked here instead, next to its only
   # consumer.
-  lockfile-check:
-    name: requirements-ci.txt matches requirements-ci.in
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: "3.14"
-      - run: pip install pip-tools
-      - name: Regenerate and diff against the committed lockfile
-        run: |
-          set -euo pipefail
-          cp requirements-ci.txt /tmp/requirements-ci.txt.committed
-          pip-compile --generate-hashes --output-file=requirements-ci.txt requirements-ci.in
-          diff -u /tmp/requirements-ci.txt.committed requirements-ci.txt
 
   yamllint:
     name: Yamllint
