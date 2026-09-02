@@ -179,6 +179,18 @@ async def test_filtered_analytics_skips_logging_for_excluded_paths(path, monkeyp
     assert response.status_code == 200
 
 
+@pytest.mark.parametrize("path", ["/", "/items", "/nanos", "/api/items", "/healthz"])
+def test_head_request_matches_get_route_with_empty_body(client, path):
+    """FastAPI 0.141.1 registers @app.get/@router.get routes with
+    methods={"GET"} only, so without HeadMethodMiddleware every one of these
+    405s on HEAD instead of following normal HTTP semantics."""
+    get_response = client.get(path)
+    head_response = client.head(path)
+
+    assert head_response.status_code == get_response.status_code
+    assert head_response.content == b""
+
+
 async def test_filtered_analytics_logs_non_excluded_paths(monkeypatch):
     logging_dispatch = AsyncMock(return_value=Response("ok"))
     monkeypatch.setattr(Analytics, "dispatch", logging_dispatch)
