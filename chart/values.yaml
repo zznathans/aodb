@@ -134,5 +134,31 @@ aodbApi:
     # -- Port the Service listens on and forwards to the container's 8000.
     port: 80
 
+  ingress:
+    # -- Create an Ingress routing to this app's Service. Off by default -
+    # see the chart README for why (the Service is meant to sit behind
+    # whatever externally-managed ingress/traffic routing your cluster
+    # already uses; this is an opt-in alternative for clusters that route
+    # via a Kubernetes Ingress controller instead).
+    enabled: false
+    # -- Hostname to route to this app. Required when enabled.
+    host: ""
+    # -- IngressClass to use (e.g. "traefik"). Empty uses the cluster's
+    # default IngressClass.
+    className: ""
+    # -- Extra annotations on the Ingress - e.g.
+    # cert-manager.io/cluster-issuer, to have cert-manager automatically
+    # issue the TLS certificate referenced by ingress.tls.secretName below.
+    annotations: {}
+    tls:
+      # -- Terminate TLS on the Ingress. Typically paired with a
+      # cert-manager.io/cluster-issuer annotation above so the certificate
+      # is issued automatically.
+      enabled: false
+      # -- Name of the Secret holding the TLS certificate. When using
+      # cert-manager, this is the Secret it creates/manages - pick any
+      # name.
+      secretName: ""
+
   # -- Raw Kubernetes objects to render alongside chart-managed resources.
   extraObjects: []
