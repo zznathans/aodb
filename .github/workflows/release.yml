@@ -55,6 +55,5 @@ jobs:
           extra_plugins: |
             @semantic-release/exec
             @semantic-release/git
-            @semantic-release-plus/docker
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}

@@ -59,8 +59,9 @@ the repo cuts one `vX.Y.Z` tag/release covering both, rather than
 versioning app/chart independently. Every release:
 
 - Publishes a container image to `ghcr.io/zznathans/aodb`, tagged
-  `X.Y.Z` and `latest` (via the `@semantic-release-plus/docker` plugin,
-  run inline as part of the release job itself).
+  `X.Y.Z` and `latest` (via `docker.yml`, triggered once
+  `@semantic-release/github`'s `publish` step creates the GitHub Release
+  for the version-bump commit above).
 - Packages and publishes the chart two ways, once the version-bump commit
   above lands: as an OCI artifact at `oci://ghcr.io/zznathans/aodb/charts`
   (`helm install aodb oci://ghcr.io/zznathans/aodb/charts/aodb --version

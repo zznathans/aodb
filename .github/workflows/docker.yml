@@ -1,13 +1,15 @@
 name: Docker
 
-# Build-only verification -- never pushes an image. Actual publishing
-# happens inline in release.yml's own job, via the
-# @semantic-release-plus/docker plugin. Same trigger/dedup shape
-# as ci.yml: push to any branch except main, and pull_request; the
-# check-pr job skips the push-triggered run once a PR is open on that
-# branch, since pull_request already covers the same commit. Not a
-# required check, so (like dependency-review.yml) it's also safe to path
-# -filter to only what actually affects the built image.
+# Builds and pushes the actual release image, triggered once
+# @semantic-release/github's publish step (see .releaserc.json) creates the
+# GitHub Release for a version-bump commit that already landed on main.
+# release.yml used to do this inline via @semantic-release-plus/docker
+# (re-tagging/pushing an already-built local image), but that plugin's
+# local-image-build step was removed from release.yml without removing the
+# plugin itself, which then failed every release outright ("No such image:
+# aodb:release") before @semantic-release/github's publish step ever ran -
+# so no GitHub Release, and this workflow, ever fired. Building and pushing
+# here directly sidesteps that path entirely.
 on:
   release:
     types: [published]
