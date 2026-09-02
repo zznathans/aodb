@@ -43,6 +43,11 @@ jobs:
           persist-credentials: false
           token: ${{ steps.app-token.outputs.token }}
 
+      # Needed by .github/scripts/publish-gh-pages-chart.sh, run as
+      # @semantic-release/exec's publishCmd (see .releaserc.json).
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+        with:
+          version: "3.17.0"
 
       - uses: cycjimmy/semantic-release-action@b12c8f6015dc215fe37bc154d4ad456dd3833c90 # v4
         with:
@@ -51,6 +56,5 @@ jobs:
             @semantic-release/exec
             @semantic-release/git
             @semantic-release-plus/docker
-            @qiwi/semantic-release-gh-pages-plugin
         env:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}

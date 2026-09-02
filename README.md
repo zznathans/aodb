@@ -67,7 +67,13 @@ versioning app/chart independently. Every release:
   X.Y.Z`, no `helm repo add` needed - the recommended path) and to a
   classic Helm chart index at https://zznathans.github.io/aodb/charts/
   (`helm repo add aodb https://zznathans.github.io/aodb/charts`), kept
-  around for third-party tooling that doesn't speak OCI registries yet.
+  around for third-party tooling that doesn't speak OCI registries yet -
+  published by `@semantic-release/exec`'s `publishCmd` running
+  `.github/scripts/publish-gh-pages-chart.sh`, which packages the chart,
+  merges it into `gh-pages`' existing `charts/index.yaml`, and pushes
+  (deliberately not delegated to `@qiwi/semantic-release-gh-pages-plugin`:
+  its published npm version always builds a `https://<token>@github.com/...`
+  push URL, which GitHub rejects for any token type).
   `chart/values.yaml`'s default image tag always matches the release
   version - the app and chart can never drift out of sync since they're
   the same number.

@@ -3,11 +3,11 @@
   "plugins": [
     "@semantic-release/commit-analyzer",
     "@semantic-release/release-notes-generator",
-    "@qiwi/semantic-release-gh-pages-plugin",
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "sh scripts/bump-chart-version.sh \"${nextRelease.version}\" && sed -i \"s|^  imageTag:.*|  imageTag: \\\"${nextRelease.version}\\\"|\" chart/values.yaml"
+        "prepareCmd": "sh scripts/bump-chart-version.sh \"${nextRelease.version}\" && sed -i \"s|^  imageTag:.*|  imageTag: \\\"${nextRelease.version}\\\"|\" chart/values.yaml",
+        "publishCmd": "bash .github/scripts/publish-gh-pages-chart.sh ${nextRelease.version}"
       }
     ],
     [
