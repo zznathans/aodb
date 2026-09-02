@@ -10,6 +10,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from .analytics import analytics_snippet
 from .api import router as api_router
@@ -134,6 +135,39 @@ class _FilteredAnalytics(Analytics):
         return await super().dispatch(request, call_next)
 
 
+class HeadMethodMiddleware:
+    """FastAPI 0.141.1 registers @app.get/@router.get routes with
+    methods={"GET"} only - unlike plain Starlette Routes, it no longer adds
+    HEAD automatically, so every GET endpoint site-wide 405s on HEAD
+    (verified against this exact fastapi/starlette pin; see requirements.txt).
+    That trips uptime/link checkers and crawlers that probe with HEAD before
+    GET, which is what surfaces as a "soft 404". Works around it by routing
+    HEAD requests through the matching GET handler and dropping the body,
+    per normal HTTP HEAD semantics."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope["method"] != "HEAD":
+            await self.app(scope, receive, send)
+            return
+
+        scope = {**scope, "method": "GET"}
+        body_sent = False
+
+        async def send_wrapper(message: dict) -> None:
+            nonlocal body_sent
+            if message["type"] == "http.response.body":
+                if body_sent:
+                    return
+                body_sent = True
+                message = {"type": "http.response.body", "body": b"", "more_body": False}
+            await send(message)
+
+        await self.app(scope, receive, send_wrapper)
+
+
 # api-analytics (https://github.com/tom-draper/api-analytics) - optional,
 # opt-in request analytics forwarded to a third-party dashboard. Only
 # enabled when an API key is provisioned; privacy_level=2 means client IPs
@@ -143,6 +177,8 @@ if _analytics_key:
     app.add_middleware(_FilteredAnalytics, api_key=_analytics_key, config=Config(privacy_level=2))
 else:
     logger.warning("API_ANALYTICS_KEY not set - request analytics middleware disabled")
+
+app.add_middleware(HeadMethodMiddleware)
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.include_router(api_router, prefix="/api")
