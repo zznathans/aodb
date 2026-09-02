@@ -1,0 +1,34 @@
+{{- if .Values.aodbApi.ingress.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}
+  {{- with .Values.aodbApi.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  {{- with .Values.aodbApi.ingress.className }}
+  ingressClassName: {{ . }}
+  {{- end }}
+  rules:
+    - host: {{ required "aodbApi.ingress.host is required when aodbApi.ingress.enabled" .Values.aodbApi.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .Release.Name }}
+                port:
+                  number: {{ .Values.aodbApi.service.port }}
+  {{- if .Values.aodbApi.ingress.tls.enabled }}
+  tls:
+    - hosts:
+        - {{ .Values.aodbApi.ingress.host | quote }}
+      secretName: {{ required "aodbApi.ingress.tls.secretName is required when aodbApi.ingress.tls.enabled" .Values.aodbApi.ingress.tls.secretName }}
+  {{- end }}
+{{- end }}

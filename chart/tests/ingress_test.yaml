@@ -1,0 +1,100 @@
+suite: ingress
+templates:
+  - ingress.yaml
+tests:
+  - it: renders nothing when disabled (the default)
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders an Ingress when enabled
+    set:
+      aodbApi.ingress.enabled: true
+      aodbApi.ingress.host: aodb.example.com
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isAPIVersion:
+          of: networking.k8s.io/v1
+      - isKind:
+          of: Ingress
+      - equal:
+          path: spec.rules[0].host
+          value: aodb.example.com
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.name
+          value: RELEASE-NAME
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 80
+      - equal:
+          path: spec.rules[0].http.paths[0].path
+          value: /
+      - equal:
+          path: spec.rules[0].http.paths[0].pathType
+          value: Prefix
+      - isNull:
+          path: spec.ingressClassName
+      - isNull:
+          path: spec.tls
+
+  - it: fails without a host when enabled
+    set:
+      aodbApi.ingress.enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "aodbApi.ingress.host is required when aodbApi.ingress.enabled"
+
+  - it: uses the configured Service port
+    set:
+      aodbApi.ingress.enabled: true
+      aodbApi.ingress.host: aodb.example.com
+      aodbApi.service.port: 8080
+    asserts:
+      - equal:
+          path: spec.rules[0].http.paths[0].backend.service.port.number
+          value: 8080
+
+  - it: sets the ingressClassName when configured
+    set:
+      aodbApi.ingress.enabled: true
+      aodbApi.ingress.host: aodb.example.com
+      aodbApi.ingress.className: traefik
+    asserts:
+      - equal:
+          path: spec.ingressClassName
+          value: traefik
+
+  - it: applies extra annotations
+    set:
+      aodbApi.ingress.enabled: true
+      aodbApi.ingress.host: aodb.example.com
+      aodbApi.ingress.annotations:
+        cert-manager.io/cluster-issuer: cloudflare-dns
+    asserts:
+      - equal:
+          path: metadata.annotations["cert-manager.io/cluster-issuer"]
+          value: cloudflare-dns
+
+  - it: renders TLS when enabled
+    set:
+      aodbApi.ingress.enabled: true
+      aodbApi.ingress.host: aodb.example.com
+      aodbApi.ingress.tls.enabled: true
+      aodbApi.ingress.tls.secretName: aodb-tls
+    asserts:
+      - equal:
+          path: spec.tls[0].hosts[0]
+          value: aodb.example.com
+      - equal:
+          path: spec.tls[0].secretName
+          value: aodb-tls
+
+  - it: fails when TLS is enabled without a secretName
+    set:
+      aodbApi.ingress.enabled: true
+      aodbApi.ingress.host: aodb.example.com
+      aodbApi.ingress.tls.enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "aodbApi.ingress.tls.secretName is required when aodbApi.ingress.tls.enabled"

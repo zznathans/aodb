@@ -6,11 +6,17 @@ the [`zznathans/aodb`](https://github.com/zznathans/aodb) monorepo,
 alongside the API's own source under `api/` - see the
 [repo README](../README.md) for the full picture.
 
-Deploys a FastAPI Deployment + Service. No chart-owned Ingress: the item
-dump is downloaded fresh into memory from a public HTTPS URL
-(`aodbApi.dumpUrl`) on every pod start, and the Service is meant to sit
-behind whatever externally-managed ingress/traffic routing your cluster
-already uses.
+Deploys a FastAPI Deployment + Service. The item dump is downloaded fresh
+into memory from a public HTTPS URL (`aodbApi.dumpUrl`) on every pod
+start. No Ingress by default - the Service is meant to sit behind
+whatever externally-managed ingress/traffic routing your cluster already
+uses. Optionally (`aodbApi.ingress.enabled`) the chart deploys its own
+Ingress instead, routing `aodbApi.ingress.host` to the Service - set
+`aodbApi.ingress.className` for a non-default IngressClass, and
+`aodbApi.ingress.tls.enabled` (with `aodbApi.ingress.tls.secretName`) to
+terminate TLS there, typically paired with a
+`cert-manager.io/cluster-issuer` annotation under
+`aodbApi.ingress.annotations` for automatic certificate issuance.
 
 The app stores the loaded dump and its search index in Redis
 (`aodbApi.redisUrl`) - by default this chart doesn't deploy Redis itself,

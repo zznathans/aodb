@@ -6,11 +6,17 @@ the [`zznathans/aodb`](https://github.com/zznathans/aodb) monorepo,
 alongside the API's own source under `api/` - see the
 [repo README](../README.md) for the full picture.
 
-Deploys a FastAPI Deployment + Service. No chart-owned Ingress: the item
-dump is downloaded fresh into memory from a public HTTPS URL
-(`aodbApi.dumpUrl`) on every pod start, and the Service is meant to sit
-behind whatever externally-managed ingress/traffic routing your cluster
-already uses.
+Deploys a FastAPI Deployment + Service. The item dump is downloaded fresh
+into memory from a public HTTPS URL (`aodbApi.dumpUrl`) on every pod
+start. No Ingress by default - the Service is meant to sit behind
+whatever externally-managed ingress/traffic routing your cluster already
+uses. Optionally (`aodbApi.ingress.enabled`) the chart deploys its own
+Ingress instead, routing `aodbApi.ingress.host` to the Service - set
+`aodbApi.ingress.className` for a non-default IngressClass, and
+`aodbApi.ingress.tls.enabled` (with `aodbApi.ingress.tls.secretName`) to
+terminate TLS there, typically paired with a
+`cert-manager.io/cluster-issuer` annotation under
+`aodbApi.ingress.annotations` for automatic certificate issuance.
 
 The app stores the loaded dump and its search index in Redis
 (`aodbApi.redisUrl`) - by default this chart doesn't deploy Redis itself,
@@ -38,7 +44,13 @@ a ConfigMap and mounts it into the pod for you - no image rebuild needed.
 | aodbApi.extraObjects | list | `[]` | Raw Kubernetes objects to render alongside chart-managed resources. |
 | aodbApi.imagePullSecrets | list | `[]` | List of image pull secret names to attach to the ServiceAccount. Leave empty if the registry is public. |
 | aodbApi.imageRepository | string | `"ghcr.io/zznathans/aodb"` | Container image registry and repository for the aodb-api image. |
-| aodbApi.imageTag | string | `"1.5.3"` | Image tag to deploy. |
+| aodbApi.imageTag | string | `"1.7.7"` | Image tag to deploy. |
+| aodbApi.ingress.annotations | object | `{}` | Extra annotations on the Ingress - e.g. cert-manager.io/cluster-issuer, to have cert-manager automatically issue the TLS certificate referenced by ingress.tls.secretName below. |
+| aodbApi.ingress.className | string | `""` | IngressClass to use (e.g. "traefik"). Empty uses the cluster's default IngressClass. |
+| aodbApi.ingress.enabled | bool | `false` | Create an Ingress routing to this app's Service. Off by default - see the chart README for why (the Service is meant to sit behind whatever externally-managed ingress/traffic routing your cluster already uses; this is an opt-in alternative for clusters that route via a Kubernetes Ingress controller instead). |
+| aodbApi.ingress.host | string | `""` | Hostname to route to this app. Required when enabled. |
+| aodbApi.ingress.tls.enabled | bool | `false` | Terminate TLS on the Ingress. Typically paired with a cert-manager.io/cluster-issuer annotation above so the certificate is issued automatically. |
+| aodbApi.ingress.tls.secretName | string | `""` | Name of the Secret holding the TLS certificate. When using cert-manager, this is the Secret it creates/manages - pick any name. |
 | aodbApi.podAnnotations | object | `{}` | Extra annotations to add to the pod template (e.g. for a service mesh sidecar injector or a config-reload trigger). |
 | aodbApi.podLabels | object | `{}` | Extra labels to add to the pod template, in addition to the chart-managed `app` label. |
 | aodbApi.redis.enabled | bool | `false` | Deploy a bundled Redis instance (via the OT-CONTAINER-KIT/redis-operator `Redis` custom resource, standalone mode only) alongside this app, instead of requiring an externally-provisioned aodbApi.redisUrl. Requires the redis-operator CRDs to already be installed in the target cluster. Off by default: enabling this for an existing installation that already points aodbApi.redisUrl at its own Redis would otherwise start deploying an unwanted, unused second Redis instance. |
@@ -70,9 +82,9 @@ helm unittest chart
 ```
 
 Every `vX.Y.Z` release (shared with the app - see the top-level README's
-"Releases" section) gets the packaged `.tgz` attached as a release asset
-and published two ways (see `.github/workflows/release.yml`'s
-`publish-chart` job):
+"Releases" section) gets the chart packaged and published two ways, from
+`chart-publish.yml` (triggered by the version-bump commit `release.yml`
+pushes to main once a release cuts):
 
 As an OCI artifact at `oci://ghcr.io/zznathans/aodb/charts` - same
 registry/namespace as the app image, no `helm repo add` needed, the
