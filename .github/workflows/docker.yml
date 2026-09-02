@@ -42,11 +42,22 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
 
+      # Explicit tags, not metadata-action's default ref-based preset: that
+      # preset tags the image from the raw git ref (v1.7.5, matching the
+      # release tag) - but chart/values.yaml's imageTag is set from
+      # semantic-release's nextRelease.version instead (1.7.5, no "v" -
+      # see .releaserc.json/scripts/bump-chart-version.sh), so the chart's
+      # default was pointing at a tag that never got pushed. type=semver
+      # strips the "v" to match; type=raw adds the floating `latest` tag
+      # the README's Releases section already documents.
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@703896b4f30f62d53f5530a80bcdc589a3f702bc
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ github.event.release.tag_name }}
+            type=raw,value=latest
 
 
       - name: Build and push Docker image
