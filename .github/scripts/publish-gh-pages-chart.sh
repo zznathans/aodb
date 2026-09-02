@@ -24,7 +24,15 @@ version="$1"
 repo_url="https://x-access-token:${GITHUB_TOKEN}@github.com/zznathans/aodb.git"
 workdir="$(mktemp -d)"
 
-git clone --branch gh-pages --single-branch --depth 1 "$repo_url" "$workdir"
+# gh-pages doesn't necessarily exist yet (e.g. it was never created in this
+# repo, or was deleted) - fall back to creating it as an orphan branch
+# rather than assuming the clone below can always target it directly.
+if git ls-remote --exit-code --heads "$repo_url" gh-pages > /dev/null 2>&1; then
+  git clone --branch gh-pages --single-branch --depth 1 "$repo_url" "$workdir"
+else
+  git clone "$repo_url" "$workdir"
+  (cd "$workdir" && git checkout --orphan gh-pages && git rm -rf . > /dev/null 2>&1 || true)
+fi
 
 mkdir -p "$workdir/charts"
 helm package chart --version "$version" --app-version "$version" -d "$workdir/charts"
