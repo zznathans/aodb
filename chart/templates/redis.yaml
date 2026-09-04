@@ -4,6 +4,8 @@ kind: ConfigMap
 metadata:
   name: {{ include "aodb.redisName" . }}-additional-config
   namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 data:
   redis-additional.conf: |
     maxmemory {{ .Values.aodbApi.redis.maxmemory }}
@@ -14,6 +16,8 @@ kind: Redis
 metadata:
   name: {{ include "aodb.redisName" . }}
   namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 spec:
   redisConfig:
     additionalRedisConfig: {{ include "aodb.redisName" . }}-additional-config
@@ -45,6 +49,8 @@ kind: ServiceMonitor
 metadata:
   name: {{ include "aodb.redisName" . }}
   namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 spec:
   selector:
     matchLabels:
