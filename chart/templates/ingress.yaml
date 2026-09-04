@@ -6,10 +6,11 @@ metadata:
   namespace: {{ .Release.Namespace }}
   labels:
     app: {{ .Release.Name }}
-  {{- with .Values.aodbApi.ingress.annotations }}
   annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    {{- with .Values.aodbApi.ingress.annotations }}
     {{- toYaml . | nindent 4 }}
-  {{- end }}
+    {{- end }}
 spec:
   {{- with .Values.aodbApi.ingress.className }}
   ingressClassName: {{ . }}

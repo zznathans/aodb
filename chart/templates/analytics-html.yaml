@@ -4,6 +4,8 @@ kind: ConfigMap
 metadata:
   name: {{ .Release.Name }}-analytics-html
   namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
 data:
   _analytics.html: {{ .Values.aodbApi.analyticsHtml | quote }}
 {{- end }}
