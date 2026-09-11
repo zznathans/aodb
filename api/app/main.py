@@ -11,6 +11,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 from starlette.types import ASGIApp, Receive, Scope, Send
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from .analytics import analytics_snippet
 from .api import router as api_router
@@ -179,6 +180,14 @@ else:
     logger.warning("API_ANALYTICS_KEY not set - request analytics middleware disabled")
 
 app.add_middleware(HeadMethodMiddleware)
+
+# TLS is always terminated in front of this app (Cloudflare/whatever ingress
+# the cluster uses - see chart/values.yaml's ingress comments), so uvicorn
+# itself only ever sees plain HTTP. Without this, request.base_url (used to
+# build every sitemap <loc> and the /robots.txt Sitemap: line) reports
+# "http://" even in production. trusted_hosts="*" is fine here since the
+# service is never reachable except through that fronting proxy.
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 app.include_router(api_router, prefix="/api")
