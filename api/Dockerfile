@@ -35,7 +35,7 @@ RUN set -eux; \
 # this builder and distroless/base-debian13 are Debian 13 (trixie), so the
 # glibc/libc.so.6/libm.so.6 python3.14 links against resolve from the base
 # image's system libs without needing anything else copied over.
-FROM gcr.io/distroless/base-debian13:nonroot@sha256:2d7d29b504e7166f6d0c7655a18ebf5def5b37b029f8c4f8667e434ba774844f AS final
+FROM gcr.io/distroless/base-debian13:nonroot@sha256:d199d20fb09c898d8822ae5cbd5cf3c6d424e9b5e1fc2eb9a719a7752cd9d861 AS final
 
 COPY --from=builder /usr/local /usr/local
 ENV LD_LIBRARY_PATH=/usr/local/lib
