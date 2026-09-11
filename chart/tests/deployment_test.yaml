@@ -111,19 +111,21 @@ tests:
           path: spec.template.spec.containers[0].securityContext.capabilities.drop[0]
           value: ALL
 
-  - it: has no extra pod annotations or labels by default
+  - it: has no extra pod annotations beyond the built-in AppArmor one, and no extra labels, by default
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
       aodbApi.redisUrl: redis://example-redis:6379/0
     asserts:
-      - isNull:
+      - equal:
           path: spec.template.metadata.annotations
+          value:
+            container.apparmor.security.beta.kubernetes.io/RELEASE-NAME: runtime/default
       - equal:
           path: spec.template.metadata.labels
           value:
             app: RELEASE-NAME
 
-  - it: adds podAnnotations to the pod template
+  - it: adds podAnnotations to the pod template alongside the built-in AppArmor one
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
       aodbApi.redisUrl: redis://example-redis:6379/0
@@ -133,6 +135,7 @@ tests:
       - equal:
           path: spec.template.metadata.annotations
           value:
+            container.apparmor.security.beta.kubernetes.io/RELEASE-NAME: runtime/default
             example.com/annotation: hello
 
   - it: adds podLabels to the pod template alongside the app label
