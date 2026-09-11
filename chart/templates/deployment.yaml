@@ -17,10 +17,18 @@ spec:
         {{- with .Values.aodbApi.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
-      {{- with .Values.aodbApi.podAnnotations }}
       annotations:
+        # Legacy annotation-based AppArmor opt-in (K8s only gained a native
+        # securityContext.appArmorProfile field in 1.30) - still honored by
+        # current kubelets, and a no-op on nodes without the AppArmor LSM
+        # (e.g. non-Debian/Ubuntu hosts). Key must match the container's
+        # own `name:` below. (Seccomp is already enforced via the modern
+        # securityContext.seccompProfile field further down - no annotation
+        # equivalent needed.)
+        container.apparmor.security.beta.kubernetes.io/{{ .Release.Name }}: runtime/default
+        {{- with .Values.aodbApi.podAnnotations }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+        {{- end }}
     spec:
       serviceAccountName: {{ .Release.Name }}-serviceaccount
       # This app never calls the Kubernetes API - it's a stateless
