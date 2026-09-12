@@ -47,7 +47,7 @@ jobs:
       - name: Build image
         uses: docker/build-push-action@v7
         with:
-          context: .
+          context: api/
           push: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
