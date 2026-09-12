@@ -1,0 +1,24 @@
+name: Docker Cleanup
+
+# Removes the pr-<number> image that docker-build.yml pushes to GHCR for
+# same-repo PRs, once the PR is merged or closed. Fork PRs never get an
+# image pushed (see docker-build.yml), so there's nothing to clean up for
+# those - the delete step below just no-ops if the tag isn't found.
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  cleanup:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Delete PR image
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          package: ${{ github.event.repository.name }}
+          tags: pr-${{ github.event.pull_request.number }}
+          token: ${{ secrets.GITHUB_TOKEN }}
