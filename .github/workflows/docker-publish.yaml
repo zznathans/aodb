@@ -1,0 +1,75 @@
+name: Docker Publish
+
+# Pushes the app image to GHCR. Triggered by a published GitHub Release so
+# the image tag lines up with a real version rather than every commit to
+# main - cut a release to publish. docker-build.yml (pull_request) is
+# separate and unaffected by this: it publishes its own pr-<number> tag for
+# same-repo PRs, but still builds without pushing as its check for forks.
+#
+# workflow_dispatch is a fallback for re-running a publish whose
+# release:published event never arrived (e.g. an Actions outage) - dispatch
+# it with the release tag to (re-)publish (`gh workflow run
+# docker-publish.yml -f tag=1.9.0`). The tag input drives both which commit
+# gets checked out and the image tag applied, so this works regardless of
+# which branch the dispatch itself runs from - it doesn't need to (and, per
+# GitHub's workflow_dispatch rules, can't reliably) target the release tag
+# ref directly, since that ref predates this trigger existing.
+on:
+  release:
+    types: [published]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/{0}', inputs.tag) || github.ref }}
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ github.event.release.tag_name || inputs.tag }}
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: api
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # Reuse the buildcache registry tag docker-build.yml keeps warm from PR builds -
+          # a release almost always follows a merged, already-built PR, so this turns most
+          # release builds into a near-instant cache hit instead of a cold rebuild. Read-only
+          # (no cache-to): publishing is infrequent and shouldn't be the thing that decides
+          # what's in the shared cache - PR builds already do that on every same-repo PR.
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+
+      - name: Generate artifact attestation
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
