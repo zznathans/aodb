@@ -199,7 +199,7 @@ app.include_router(web_router)
 
 @app.get('/favicon.ico', include_in_schema=False)
 async def favicon():
-    return FileResponse('app/static/ao.ico')
+    return FileResponse('static/ao.ico')
 
 
 @app.get("/api", include_in_schema=False)
@@ -212,11 +212,6 @@ def docs() -> HTMLResponse:
 def healthz():
     return "ok"
 
-
-@app.get("/robots.txt", response_class=PlainTextResponse, include_in_schema=False)
-def robots(request: Request):
-    base = str(request.base_url).rstrip("/")
-    return f"User-agent: *\nAllow: /\nSitemap: {base}/sitemap.xml\n"
 
 
 # RFC 9727 (https://www.rfc-editor.org/rfc/rfc9727) - a standard well-known
