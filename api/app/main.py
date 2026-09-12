@@ -197,7 +197,6 @@ app.include_router(professions_router, prefix="/api")
 app.include_router(sitemap_router)
 app.include_router(web_router)
 
-
 @app.get('/favicon.ico', include_in_schema=False)
 async def favicon():
     return FileResponse('static/ao.ico')
