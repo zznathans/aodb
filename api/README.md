@@ -131,6 +131,18 @@ registered (see `app/main.py`). Client IPs are never sent
 `_FilteredAnalytics` in `app/main.py`) since they're infra/crawler noise,
 not real API usage.
 
+## Metrics
+
+`/metrics` exposes Prometheus-format request metrics (counts, latencies,
+sizes, grouped by route template - e.g. `/items/{aoid}`, not one series
+per aoid) via [prometheus-fastapi-instrumentator](https://github.com/trallnag/prometheus-fastapi-instrumentator).
+It's always on and unauthenticated, same as the rest of this API. Deploying
+via the chart, set `aodbApi.serviceMonitor.enabled=true` to have the
+Prometheus Operator scrape it automatically (requires the
+prometheus-operator CRDs already installed in the cluster - same
+opt-in pattern as `aodbApi.redis.serviceMonitor` for the bundled Redis
+exporter).
+
 ## Local development
 
 ```

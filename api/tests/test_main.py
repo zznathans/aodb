@@ -164,7 +164,9 @@ def _make_request(path: str) -> Request:
     return Request({"type": "http", "path": path, "headers": [], "query_string": b""})
 
 
-@pytest.mark.parametrize("path", ["/healthz", "/robots.txt", "/.well-known/api-catalog", "/static/style.css"])
+@pytest.mark.parametrize(
+    "path", ["/healthz", "/robots.txt", "/.well-known/api-catalog", "/static/style.css", "/metrics"]
+)
 async def test_filtered_analytics_skips_logging_for_excluded_paths(path, monkeypatch):
     logging_dispatch = AsyncMock(side_effect=AssertionError("should not log excluded paths"))
     monkeypatch.setattr(Analytics, "dispatch", logging_dispatch)
@@ -205,3 +207,17 @@ async def test_filtered_analytics_logs_non_excluded_paths(monkeypatch):
     # attribute, so super().dispatch(...) calls it unbound - no `self` arg.
     logging_dispatch.assert_awaited_once_with(request, call_next)
     assert response.status_code == 200
+
+
+def test_metrics_endpoint_exposes_prometheus_text_format(client):
+    resp = client.get("/metrics")
+
+    assert resp.status_code == 200
+    assert resp.headers["content-type"].startswith("text/plain")
+    assert "# HELP" in resp.text
+
+
+def test_metrics_endpoint_not_in_openapi_schema(client):
+    spec = client.get("/api/openapi.json").json()
+
+    assert "/metrics" not in spec["paths"]

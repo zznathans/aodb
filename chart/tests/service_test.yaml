@@ -16,3 +16,37 @@ tests:
       - equal:
           path: spec.ports[0].targetPort
           value: 8000
+      - equal:
+          path: spec.ports[0].name
+          value: http
+
+  - it: does not render a ServiceMonitor when serviceMonitor.enabled is unset (default)
+    asserts:
+      - hasDocuments:
+          count: 1
+
+  - it: renders a ServiceMonitor scraping /metrics when serviceMonitor.enabled is true
+    set:
+      aodbApi.serviceMonitor.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 2
+      - documentIndex: 1
+        isKind:
+          of: ServiceMonitor
+      - documentIndex: 1
+        equal:
+          path: metadata.name
+          value: RELEASE-NAME
+      - documentIndex: 1
+        equal:
+          path: spec.selector.matchLabels
+          value:
+            app: RELEASE-NAME
+      - documentIndex: 1
+        equal:
+          path: spec.endpoints[0]
+          value:
+            port: http
+            path: /metrics
+            interval: 30s

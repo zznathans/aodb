@@ -71,6 +71,8 @@ a ConfigMap and mounts it into the pod for you - no image rebuild needed.
 | aodbApi.replicaCount | int | `1` | Number of pod replicas. Safe to run more than one - each replica independently loads its own in-memory copy of the dump from dumpUrl on startup, no shared state between them. |
 | aodbApi.resources | object | `{"limits":{"cpu":"250m","memory":"512Mi"},"requests":{"cpu":"50m","memory":"128Mi"}}` | Resource requests and limits for the app container. The 256Mi memory limit was too tight for the dump-load step and OOMKilled pods mid-load in a real cluster (confirmed reproducible, not a one-off) - 512Mi gives real headroom above the ~65MB peak RSS the dump parser alone was measured at (app/dump_loader.py), which doesn't account for the rest of the process (interpreter, FastAPI/uvicorn, the Redis client, the raw HTTP response buffer) or growth in the dump/item schema over time. |
 | aodbApi.service.port | int | `80` | Port the Service listens on and forwards to the container's 8000. |
+| aodbApi.serviceMonitor.enabled | bool | `false` | Create a Prometheus Operator ServiceMonitor scraping this app's own /metrics endpoint (prometheus-fastapi-instrumentator - request counts/latencies/sizes by route). Separate toggle from anything else since it depends on the prometheus-operator CRDs being installed. Same pattern as aodbApi.redis.serviceMonitor for the bundled Redis exporter. |
+| aodbApi.serviceMonitor.interval | string | `"30s"` | Scrape interval for this app's ServiceMonitor. |
 
 ## Development
 
