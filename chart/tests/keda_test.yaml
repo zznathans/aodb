@@ -1,0 +1,79 @@
+suite: keda
+templates:
+  - keda.yaml
+tests:
+  - it: renders nothing when disabled (the default)
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders a ScaledObject when enabled with triggers set
+    set:
+      aodbApi.keda.enabled: true
+      aodbApi.keda.triggers:
+        - type: cpu
+          metadata:
+            type: Utilization
+            value: "70"
+    asserts:
+      - hasDocuments:
+          count: 1
+      - isAPIVersion:
+          of: keda.sh/v1alpha1
+      - isKind:
+          of: ScaledObject
+      - equal:
+          path: spec.scaleTargetRef.name
+          value: RELEASE-NAME
+      - equal:
+          path: spec.minReplicaCount
+          value: 1
+      - equal:
+          path: spec.maxReplicaCount
+          value: 5
+      - equal:
+          path: spec.pollingInterval
+          value: 30
+      - equal:
+          path: spec.cooldownPeriod
+          value: 300
+      - equal:
+          path: spec.triggers
+          value:
+            - type: cpu
+              metadata:
+                type: Utilization
+                value: "70"
+
+  - it: fails without triggers when enabled
+    set:
+      aodbApi.keda.enabled: true
+    asserts:
+      - failedTemplate:
+          errorMessage: "aodbApi.keda.triggers must have at least one trigger when aodbApi.keda.enabled"
+
+  - it: uses configured min/max/pollingInterval/cooldownPeriod
+    set:
+      aodbApi.keda.enabled: true
+      aodbApi.keda.minReplicaCount: 2
+      aodbApi.keda.maxReplicaCount: 10
+      aodbApi.keda.pollingInterval: 15
+      aodbApi.keda.cooldownPeriod: 120
+      aodbApi.keda.triggers:
+        - type: cpu
+          metadata:
+            type: Utilization
+            value: "70"
+    asserts:
+      - equal:
+          path: spec.minReplicaCount
+          value: 2
+      - equal:
+          path: spec.maxReplicaCount
+          value: 10
+      - equal:
+          path: spec.pollingInterval
+          value: 15
+      - equal:
+          path: spec.cooldownPeriod
+          value: 120

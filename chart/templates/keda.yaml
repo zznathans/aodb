@@ -1,0 +1,22 @@
+{{- if .Values.aodbApi.keda.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  scaleTargetRef:
+    name: {{ .Release.Name }}
+  minReplicaCount: {{ .Values.aodbApi.keda.minReplicaCount }}
+  maxReplicaCount: {{ .Values.aodbApi.keda.maxReplicaCount }}
+  pollingInterval: {{ .Values.aodbApi.keda.pollingInterval }}
+  cooldownPeriod: {{ .Values.aodbApi.keda.cooldownPeriod }}
+  triggers:
+    {{- with .Values.aodbApi.keda.triggers }}
+    {{- toYaml . | nindent 4 }}
+    {{- else }}
+    {{ fail "aodbApi.keda.triggers must have at least one trigger when aodbApi.keda.enabled" }}
+    {{- end }}
+{{- end }}

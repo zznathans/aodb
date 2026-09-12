@@ -28,6 +28,14 @@ dedicated Redis instance instead (via the
 already be installed in the target cluster). `aodbApi.redisUrl` always
 takes precedence when set.
 
+Set `aodbApi.keda.enabled=true` to have the chart deploy a
+[KEDA](https://keda.sh) `ScaledObject` autoscaling the Deployment instead of
+the static `aodbApi.replicaCount` - requires KEDA to already be installed in
+the target cluster. `aodbApi.keda.triggers` takes raw KEDA scaler trigger
+definitions (see the [scalers docs](https://keda.sh/docs/latest/scalers/)) -
+e.g. cpu, or a prometheus trigger against this app's own `/metrics` endpoint
+(`aodbApi.serviceMonitor`).
+
 Client-side analytics (e.g. a Cloudflare Web Analytics beacon or Google
 Analytics tag - see the app's own README) aren't in the published image at
 all, since the file that carries them is gitignored. Set
