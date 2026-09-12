@@ -134,6 +134,15 @@ aodbApi:
     # -- Port the Service listens on and forwards to the container's 8000.
     port: 80
 
+  serviceMonitor:
+    # -- Create a Prometheus Operator ServiceMonitor scraping this app's own /metrics endpoint
+    # (prometheus-fastapi-instrumentator - request counts/latencies/sizes by route). Separate
+    # toggle from anything else since it depends on the prometheus-operator CRDs being
+    # installed. Same pattern as aodbApi.redis.serviceMonitor for the bundled Redis exporter.
+    enabled: false
+    # -- Scrape interval for this app's ServiceMonitor.
+    interval: 30s
+
   ingress:
     # -- Create an Ingress routing to this app's Service. Off by default -
     # see the chart README for why (the Service is meant to sit behind

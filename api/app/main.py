@@ -8,6 +8,7 @@ from fastapi import FastAPI, Request
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
+from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -126,7 +127,7 @@ class _FilteredAnalytics(Analytics):
     subclass skips straight to call_next (bypassing Analytics.dispatch,
     and therefore log_request) for exactly those paths."""
 
-    _EXCLUDED_PATHS = frozenset({"/healthz", "/robots.txt", "/.well-known/api-catalog"})
+    _EXCLUDED_PATHS = frozenset({"/healthz", "/robots.txt", "/.well-known/api-catalog", "/metrics"})
     _EXCLUDED_PREFIXES = ("/static/",)
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
@@ -240,3 +241,13 @@ def api_catalog(request: Request) -> JSONResponse:
         content=linkset,
         media_type='application/linkset+json; profile="https://www.rfc-editor.org/info/rfc9727"',
     )
+
+
+# prometheus-fastapi-instrumentator (https://github.com/trallnag/prometheus-fastapi-instrumentator)
+# - per-request latency/count/size metrics grouped by route template (e.g.
+# "/items/{aoid}", not one series per aoid). instrument() is called last,
+# after every route above is registered, so it can see the full route table
+# when building its handler-grouping. Scraped by the ServiceMonitor in
+# chart/templates/deployment.yaml, the same pattern already used for the
+# bundled Redis exporter in chart/templates/redis.yaml.
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
