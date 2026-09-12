@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from api_analytics.fastapi import Analytics, Config
 from fastapi import FastAPI, Request
 from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
 from starlette.middleware.base import RequestResponseEndpoint
@@ -196,6 +196,11 @@ app.include_router(legacy_router, prefix="/api")
 app.include_router(professions_router, prefix="/api")
 app.include_router(sitemap_router)
 app.include_router(web_router)
+
+
+@app.get('/favicon.ico', include_in_schema=False)
+async def favicon():
+    return FileResponse('static/favicon.ico')
 
 
 @app.get("/api", include_in_schema=False)
