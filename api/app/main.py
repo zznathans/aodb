@@ -199,7 +199,7 @@ app.include_router(web_router)
 
 @app.get('/favicon.ico', include_in_schema=False)
 async def favicon():
-    return FileResponse('static/ao.ico')
+    return FileResponse('app/static/ao.ico')
 
 
 @app.get("/api", include_in_schema=False)
