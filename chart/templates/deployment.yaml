@@ -35,6 +35,37 @@ spec:
       # Redis-backed HTTP service - so the default-mounted SA token would
       # just be unused attack surface.
       automountServiceAccountToken: false
+      {{- if and .Values.aodbApi.redis.enabled (not .Values.aodbApi.redisUrl) }}
+      initContainers:
+        - name: wait-for-redis
+          # The app itself has no connection retry (api/app/redis_client.py) -
+          # a lifespan startup Redis.get() against an unreachable Redis raises
+          # and crashes the process rather than retrying. ArgoCD's sync-wave
+          # ordering alone doesn't guarantee this: it has no health.lua for
+          # the custom redis.redis.opstreelabs.in/Redis CRD, so it likely
+          # marks that resource Healthy as soon as it's applied, not once the
+          # underlying Redis pod is actually Ready. This waits on the same
+          # host the app itself connects to (aodb.redisUrl in _helpers.tpl).
+          image: busybox:1.36
+          command:
+            - sh
+            - -c
+            - |
+              until nc -z -w2 {{ include "aodb.redisName" . }}.{{ .Release.Namespace }}.svc.cluster.local 6379; do
+                echo "waiting for redis..."
+                sleep 2
+              done
+          securityContext:
+            allowPrivilegeEscalation: false
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+      {{- end }}
       containers:
         - name: {{ .Release.Name }}
           image: {{ .Values.aodbApi.imageRepository }}:{{ .Values.aodbApi.imageTag }}

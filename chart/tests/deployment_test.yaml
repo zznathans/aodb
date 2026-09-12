@@ -207,3 +207,38 @@ tests:
             mountPath: /app/app/templates/_analytics.html
             subPath: _analytics.html
             readOnly: true
+
+  - it: no wait-for-redis initContainer by default (external redisUrl)
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+    asserts:
+      - isNull:
+          path: spec.template.spec.initContainers
+
+  - it: adds a wait-for-redis initContainer targeting the bundled redis service when redis.enabled
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redis.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.initContainers[0].name
+          value: wait-for-redis
+      - matchRegex:
+          path: spec.template.spec.initContainers[0].command[2]
+          pattern: RELEASE-NAME-redis\.NAMESPACE\.svc\.cluster\.local 6379
+      - equal:
+          path: spec.template.spec.initContainers[0].securityContext.runAsNonRoot
+          value: true
+      - equal:
+          path: spec.template.spec.initContainers[0].securityContext.capabilities.drop[0]
+          value: ALL
+
+  - it: no wait-for-redis initContainer when explicit redisUrl wins over redis.enabled
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.redis.enabled: true
+    asserts:
+      - isNull:
+          path: spec.template.spec.initContainers
