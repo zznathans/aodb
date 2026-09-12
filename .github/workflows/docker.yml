@@ -1,78 +1,63 @@
 name: Docker
 
-# Builds and pushes the actual release image, triggered once
-# @semantic-release/github's publish step (see .releaserc.json) creates the
-# GitHub Release for a version-bump commit that already landed on main.
-# release.yml used to do this inline via @semantic-release-plus/docker
-# (re-tagging/pushing an already-built local image), but that plugin's
-# local-image-build step was removed from release.yml without removing the
-# plugin itself, which then failed every release outright ("No such image:
-# aodb:release") before @semantic-release/github's publish step ever ran -
-# so no GitHub Release, and this workflow, ever fired. Building and pushing
-# here directly sidesteps that path entirely.
 on:
-  release:
-    types: [published]
+  pull_request:
+
+concurrency:
+  group: docker-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
-
 jobs:
-  build-and-push-image:
+  build:
     runs-on: ubuntu-latest
-
-
     permissions:
       contents: read
+      # Only granted for same-repo PRs (see the `if` below) - a fork PR runs
+      # with read-only GITHUB_TOKEN regardless, so packages: write here can't
+      # be exploited by a forked pull_request to push images.
       packages: write
-      attestations: write
-      id-token: write
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # Fork PRs get a read-only token, so login/push would fail - skip it
+      # and keep the plain build as the check for those.
       - name: Log in to the Container registry
-        uses: docker/login-action@0a596b2e7a325f0cedf8e9bd21ab002cbd3c9241
+        if: github.event.pull_request.head.repo.full_name == github.repository
+        uses: docker/login-action@v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-
-      # Explicit tags, not metadata-action's default ref-based preset: that
-      # preset tags the image from the raw git ref (v1.7.5, matching the
-      # release tag) - but chart/values.yaml's imageTag is set from
-      # semantic-release's nextRelease.version instead (1.7.5, no "v" -
-      # see .releaserc.json/scripts/bump-chart-version.sh), so the chart's
-      # default was pointing at a tag that never got pushed. type=semver
-      # strips the "v" to match; type=raw adds the floating `latest` tag
-      # the README's Releases section already documents.
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@334e73ab8691df8da4a6abd9cc73e8d48195fc6b
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}},value=${{ github.event.release.tag_name }}
-            type=raw,value=latest
+            type=raw,value=pr-${{ github.event.pull_request.number }}
 
-
-      - name: Build and push Docker image
-        id: push
-        uses: docker/build-push-action@2ca78c6bec76527009825f31aae0532b4d40d820
+      - name: Build image
+        uses: docker/build-push-action@v7
         with:
-          context: api/.
-          push: true
+          context: api/Dockerfile
+          push: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-
-
-      - name: Generate artifact attestation
-        uses: actions/attest@v4
-        with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
-          subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: true
+          # Registry cache instead of type=gha: gha-backend cache entries are immutable, so
+          # buildx re-uploads the *entire* cache blob set on every single build regardless of
+          # whether anything changed (a fixed ~30s tax we measured on an otherwise fully
+          # cache-hit build), and gha cache is scoped per-branch/base-branch - since this
+          # workflow only runs on pull_request (never a push to main), no branch ever seeds a
+          # shared base cache, so every new PR branch starts cold. A registry stores cache
+          # layers as content-addressed blobs, so unchanged layers are skipped on push (real
+          # incremental caching) and every branch shares the one `buildcache` tag.
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:buildcache
+          cache-to: ${{ github.event.pull_request.head.repo.full_name == github.repository && format('type=registry,ref={0}/{1}:buildcache,mode=max', env.REGISTRY, env.IMAGE_NAME) || '' }}
