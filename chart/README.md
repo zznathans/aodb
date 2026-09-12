@@ -28,6 +28,14 @@ dedicated Redis instance instead (via the
 already be installed in the target cluster). `aodbApi.redisUrl` always
 takes precedence when set.
 
+Set `aodbApi.keda.enabled=true` to have the chart deploy a
+[KEDA](https://keda.sh) `ScaledObject` autoscaling the Deployment instead of
+the static `aodbApi.replicaCount` - requires KEDA to already be installed in
+the target cluster. `aodbApi.keda.triggers` takes raw KEDA scaler trigger
+definitions (see the [scalers docs](https://keda.sh/docs/latest/scalers/)) -
+e.g. cpu, or a prometheus trigger against this app's own `/metrics` endpoint
+(`aodbApi.serviceMonitor`).
+
 Client-side analytics (e.g. a Cloudflare Web Analytics beacon or Google
 Analytics tag - see the app's own README) aren't in the published image at
 all, since the file that carries them is gitignored. Set
@@ -44,13 +52,19 @@ a ConfigMap and mounts it into the pod for you - no image rebuild needed.
 | aodbApi.extraObjects | list | `[]` | Raw Kubernetes objects to render alongside chart-managed resources. |
 | aodbApi.imagePullSecrets | list | `[]` | List of image pull secret names to attach to the ServiceAccount. Leave empty if the registry is public. |
 | aodbApi.imageRepository | string | `"ghcr.io/zznathans/aodb"` | Container image registry and repository for the aodb-api image. |
-| aodbApi.imageTag | string | `"1.7.7"` | Image tag to deploy. |
+| aodbApi.imageTag | string | `"1.10.3"` | Image tag to deploy. |
 | aodbApi.ingress.annotations | object | `{}` | Extra annotations on the Ingress - e.g. cert-manager.io/cluster-issuer, to have cert-manager automatically issue the TLS certificate referenced by ingress.tls.secretName below. |
 | aodbApi.ingress.className | string | `""` | IngressClass to use (e.g. "traefik"). Empty uses the cluster's default IngressClass. |
 | aodbApi.ingress.enabled | bool | `false` | Create an Ingress routing to this app's Service. Off by default - see the chart README for why (the Service is meant to sit behind whatever externally-managed ingress/traffic routing your cluster already uses; this is an opt-in alternative for clusters that route via a Kubernetes Ingress controller instead). |
 | aodbApi.ingress.host | string | `""` | Hostname to route to this app. Required when enabled. |
 | aodbApi.ingress.tls.enabled | bool | `false` | Terminate TLS on the Ingress. Typically paired with a cert-manager.io/cluster-issuer annotation above so the certificate is issued automatically. |
 | aodbApi.ingress.tls.secretName | string | `""` | Name of the Secret holding the TLS certificate. When using cert-manager, this is the Secret it creates/manages - pick any name. |
+| aodbApi.keda.cooldownPeriod | int | `300` | How long (seconds) to wait after the last high metric value before scaling back down. |
+| aodbApi.keda.enabled | bool | `false` | Deploy a KEDA ScaledObject to autoscale this app's Deployment. Requires KEDA to already be installed in the target cluster. Safe to enable freely - each replica independently loads its own copy of the dump on startup, no shared state to coordinate across a changing replica count. |
+| aodbApi.keda.maxReplicaCount | int | `5` | Maximum replica count KEDA will scale up to. |
+| aodbApi.keda.minReplicaCount | int | `1` | Minimum replica count KEDA will scale down to. |
+| aodbApi.keda.pollingInterval | int | `30` | How often (seconds) KEDA checks trigger metrics. |
+| aodbApi.keda.triggers | list | `[]` | KEDA scaler trigger definitions (see https://keda.sh/docs/latest/scalers/), rendered verbatim into the ScaledObject's spec.triggers. Required (non-empty) when aodbApi.keda.enabled - e.g. a cpu trigger, or a prometheus trigger against this app's own /metrics endpoint (aodbApi.serviceMonitor). |
 | aodbApi.podAnnotations | object | `{}` | Extra annotations to add to the pod template (e.g. for a service mesh sidecar injector or a config-reload trigger). |
 | aodbApi.podLabels | object | `{}` | Extra labels to add to the pod template, in addition to the chart-managed `app` label. |
 | aodbApi.redis.enabled | bool | `false` | Deploy a bundled Redis instance (via the OT-CONTAINER-KIT/redis-operator `Redis` custom resource, standalone mode only) alongside this app, instead of requiring an externally-provisioned aodbApi.redisUrl. Requires the redis-operator CRDs to already be installed in the target cluster. Off by default: enabling this for an existing installation that already points aodbApi.redisUrl at its own Redis would otherwise start deploying an unwanted, unused second Redis instance. |
@@ -68,7 +82,7 @@ a ConfigMap and mounts it into the pod for you - no image rebuild needed.
 | aodbApi.redis.serviceMonitor.interval | string | `"30s"` | Scrape interval for the Redis metrics ServiceMonitor. |
 | aodbApi.redis.storage.size | string | `"1Gi"` | Size of the PersistentVolumeClaim provisioned for the bundled Redis instance. |
 | aodbApi.redisUrl | string | `""` | Connection URL for the Redis instance this app uses to store the loaded item dump and back its search index (see the app's own README) - e.g. redis://my-redis:6379/0, or redis://:password@my-redis:6379/0 if auth is enabled. Takes precedence over aodbApi.redis.enabled if both are set. Leave unset (and set aodbApi.redis.enabled=true) to use the chart's own bundled Redis instead of pointing at an externally-provisioned one. |
-| aodbApi.replicaCount | int | `1` | Number of pod replicas. Safe to run more than one - each replica independently loads its own in-memory copy of the dump from dumpUrl on startup, no shared state between them. |
+| aodbApi.replicaCount | int | `1` | Number of pod replicas. Safe to run more than one - each replica independently loads its own in-memory copy of the dump from dumpUrl on startup, no shared state between them. Ignored when aodbApi.keda.enabled - KEDA manages the replica count instead. |
 | aodbApi.resources | object | `{"limits":{"cpu":"250m","memory":"512Mi"},"requests":{"cpu":"50m","memory":"128Mi"}}` | Resource requests and limits for the app container. The 256Mi memory limit was too tight for the dump-load step and OOMKilled pods mid-load in a real cluster (confirmed reproducible, not a one-off) - 512Mi gives real headroom above the ~65MB peak RSS the dump parser alone was measured at (app/dump_loader.py), which doesn't account for the rest of the process (interpreter, FastAPI/uvicorn, the Redis client, the raw HTTP response buffer) or growth in the dump/item schema over time. |
 | aodbApi.service.port | int | `80` | Port the Service listens on and forwards to the container's 8000. |
 | aodbApi.serviceMonitor.enabled | bool | `false` | Create a Prometheus Operator ServiceMonitor scraping this app's own /metrics endpoint (prometheus-fastapi-instrumentator - request counts/latencies/sizes by route). Separate toggle from anything else since it depends on the prometheus-operator CRDs being installed. Same pattern as aodbApi.redis.serviceMonitor for the bundled Redis exporter. |

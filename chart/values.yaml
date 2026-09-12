@@ -84,8 +84,29 @@ aodbApi:
       interval: 30s
 
   # -- Number of pod replicas. Safe to run more than one - each replica independently loads its
-  # own in-memory copy of the dump from dumpUrl on startup, no shared state between them.
+  # own in-memory copy of the dump from dumpUrl on startup, no shared state between them. Ignored
+  # when aodbApi.keda.enabled - KEDA manages the replica count instead.
   replicaCount: 1
+
+  keda:
+    # -- Deploy a KEDA ScaledObject to autoscale this app's Deployment. Requires KEDA to already
+    # be installed in the target cluster. Safe to enable freely - each replica independently
+    # loads its own copy of the dump on startup, no shared state to coordinate across a changing
+    # replica count.
+    enabled: false
+    # -- Minimum replica count KEDA will scale down to.
+    minReplicaCount: 1
+    # -- Maximum replica count KEDA will scale up to.
+    maxReplicaCount: 5
+    # -- How often (seconds) KEDA checks trigger metrics.
+    pollingInterval: 30
+    # -- How long (seconds) to wait after the last high metric value before scaling back down.
+    cooldownPeriod: 300
+    # -- KEDA scaler trigger definitions (see https://keda.sh/docs/latest/scalers/), rendered
+    # verbatim into the ScaledObject's spec.triggers. Required (non-empty) when
+    # aodbApi.keda.enabled - e.g. a cpu trigger, or a prometheus trigger against this app's own
+    # /metrics endpoint (aodbApi.serviceMonitor).
+    triggers: []
 
   # -- Extra annotations to add to the pod template (e.g. for a service mesh sidecar injector
   # or a config-reload trigger).

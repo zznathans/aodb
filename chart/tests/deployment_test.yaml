@@ -99,6 +99,20 @@ tests:
           path: spec.replicas
           value: 3
 
+  - it: omits spec.replicas when keda is enabled
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.keda.enabled: true
+      aodbApi.keda.triggers:
+        - type: cpu
+          metadata:
+            type: Utilization
+            value: "70"
+    asserts:
+      - isNull:
+          path: spec.replicas
+
   - it: runs as a non-root user with hardened security context
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip

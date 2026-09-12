@@ -6,7 +6,9 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "1"
 spec:
+  {{- if not .Values.aodbApi.keda.enabled }}
   replicas: {{ .Values.aodbApi.replicaCount }}
+  {{- end }}
   selector:
     matchLabels:
       app: {{ .Release.Name }}
