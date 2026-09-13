@@ -115,7 +115,7 @@ spec:
             # (verified against the real ~5.7MB/125k-item dump: ~5-10s including network), so
             # this needs more headroom than a typical stateless app's startup.
             initialDelaySeconds: 0
-            periodSeconds: 2
+            periodSeconds: 10
             failureThreshold: 20
           livenessProbe:
             httpGet:
