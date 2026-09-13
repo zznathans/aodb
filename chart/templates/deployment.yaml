@@ -49,6 +49,7 @@ spec:
           # underlying Redis pod is actually Ready. This waits on the same
           # host the app itself connects to (aodb.redisUrl in _helpers.tpl).
           image: busybox:1.36
+          imagePullPolicy: Always
           command:
             - sh
             - -c
