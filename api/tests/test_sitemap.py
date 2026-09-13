@@ -16,7 +16,7 @@ async def test_sitemap_index_lists_per_resource_indexes(client):
 
     assert resp.status_code == 200
     assert resp.headers["content-type"] == "application/xml"
-    assert resp.headers["cache-control"] == "public, max-age=3600"
+    assert resp.headers["cache-control"] == "public, max-age=300"
     assert "<sitemapindex" in resp.text
     assert "http://testserver/items/sitemap.xml" in resp.text
     assert "http://testserver/nanos/sitemap.xml" in resp.text
