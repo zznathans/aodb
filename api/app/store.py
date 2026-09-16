@@ -58,8 +58,9 @@ here.
 import hashlib
 import json
 import logging
+from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable
+from typing import Any
 
 from pymongo.errors import BulkWriteError
 
@@ -248,21 +249,39 @@ def make_nano(
     )
 
 
-async def _insert_new(collection, docs: list[dict]) -> None:
+async def _insert_new(collection, docs: Iterable[dict]) -> None:
     """insert_many(ordered=False) writes every doc it can and reports every
     failure at the end - duplicate-key failures (an id already loaded by a
     previous call() - see module docstring) are expected and swallowed;
-    anything else re-raises."""
-    for start in range(0, len(docs), _BATCH_SIZE):
-        batch = docs[start : start + _BATCH_SIZE]
-        try:
-            await collection.insert_many(batch, ordered=False)
-        except BulkWriteError as exc:
-            other_errors = [
-                err for err in exc.details.get("writeErrors", []) if err.get("code") != _DUPLICATE_KEY_ERROR_CODE
-            ]
-            if other_errors:
-                raise
+    anything else re-raises.
+
+    `docs` is consumed lazily (a generator, not a pre-built list - see
+    ItemStore.insert_items/NanoStore.insert_nanos) and only ever holds one
+    batch's worth in memory at a time. Building the full doc list (with
+    its `trigrams` array - see _trigrams) for the whole ~125k-item dump
+    upfront, on top of the already-resident parsed Item/NanoProgram
+    objects it's built from, doubled peak memory during a real load and
+    OOMKilled the pod - this keeps peak memory proportional to one batch."""
+    batch: list[dict] = []
+    for doc in docs:
+        batch.append(doc)
+        if len(batch) >= _BATCH_SIZE:
+            await _insert_batch(collection, batch)
+            batch = []
+    await _insert_batch(collection, batch)
+
+
+async def _insert_batch(collection, batch: list[dict]) -> None:
+    if not batch:
+        return
+    try:
+        await collection.insert_many(batch, ordered=False)
+    except BulkWriteError as exc:
+        other_errors = [
+            err for err in exc.details.get("writeErrors", []) if err.get("code") != _DUPLICATE_KEY_ERROR_CODE
+        ]
+        if other_errors:
+            raise
 
 
 class ItemStore:
@@ -349,7 +368,7 @@ class ItemStore:
         also makes a reload of the same or overlapping dump far cheaper -
         insert_many(ordered=False) does this for free via the unique _id
         index, no pre-fetch/diff needed."""
-        await _insert_new(self._collection(), [self._item_to_doc(item) for item in items])
+        await _insert_new(self._collection(), (self._item_to_doc(item) for item in items))
 
     async def compute_counts(self, items: list[Item]) -> None:
         """Aggregates category_counts/subcategory_counts from the full
@@ -579,7 +598,7 @@ class NanoStore:
     async def insert_nanos(self, nanos: list[NanoProgram]) -> None:
         """Writes every nano that isn't already stored - never deletes/
         replaces first, same reasoning as ItemStore.insert_items()."""
-        await _insert_new(self._collection(), [self._nano_to_doc(nano) for nano in self._real_nanos(nanos)])
+        await _insert_new(self._collection(), (self._nano_to_doc(nano) for nano in self._real_nanos(nanos)))
 
     async def compute_counts(self, nanos: list[NanoProgram]) -> None:
         """Aggregates profession_counts/school_counts from the full
