@@ -5,5 +5,5 @@ description: Helm chart for aodb
 
 type: application
 
-appVersion: 1.11.4
-version: 1.11.4
+appVersion: 1.12.0
+version: 1.12.0
