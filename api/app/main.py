@@ -2,6 +2,7 @@ import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta, timezone
 
 from api_analytics.fastapi import Analytics, Config
 from fastapi import FastAPI, Request
@@ -9,6 +10,7 @@ from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 from prometheus_fastapi_instrumentator import Instrumentator
+from pymongo.errors import DuplicateKeyError
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.responses import Response
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -18,8 +20,8 @@ from .analytics import analytics_snippet
 from .api import router as api_router
 from .dump_loader import import_from_url, parse_dump_zip
 from .legacy import router as legacy_router
+from .mongo_client import get_mongo
 from .professions import router as professions_router
-from .redis_client import get_redis
 from .sitemap import router as sitemap_router
 from .store import nano_store, store
 from .web import router as web_router
@@ -40,52 +42,80 @@ logger = logging.getLogger(__name__)
 # API_ANALYTICS_KEY is actually set; harmless no-op otherwise.
 logging.getLogger("api_analytics").setLevel(logging.WARNING)
 
-# Redis is shared by every pod, so only one pod needs to actually parse the
+# Mongo is shared by every pod, so only one pod needs to actually parse the
 # dump and write it - the rest just wait for that to finish and then read
-# the same data straight out of Redis. "Version" is just the source
+# the same data straight out of Mongo. "Version" is just the source
 # identifier: if it's unchanged since the last successful load, the data
-# already in Redis is assumed current and reloading is skipped entirely.
-_LOAD_LOCK_KEY = "aodb:load:lock"
-_LOAD_READY_KEY = "aodb:load:ready"
-_LOAD_LOCK_TTL_SECONDS = 300
+# already in Mongo is assumed current and reloading is skipped entirely.
+# The lock is a single singleton document (_id=_LOAD_DOC_ID) in the
+# load_state collection: find_one_and_update's atomic compare-and-swap
+# acquires it (only matching when no other pod's lock is still within its
+# TTL) the same way SET NX EX used to against Redis, and a plain field on
+# the same doc tracks the ready version (mirrors GET on a separate key).
+_LOAD_DOC_ID = "load"
+_LOAD_LOCK_TTL = timedelta(seconds=300)
 _LOAD_WAIT_TIMEOUT_SECONDS = 120
 
 
 async def _load_items() -> None:
-    """Loads the item dump into Redis before the app starts accepting
+    """Loads the item dump into Mongo before the app starts accepting
     traffic, unless another pod has already loaded the same dump version.
     DUMP_URL pulls the dump zip from its public HTTPS URL - the normal
     deployed path. DUMP_PATH loads a local dump zip instead, for local dev.
-    With neither set, Redis stays empty and the API serves "no results" for
+    With neither set, Mongo stays empty and the API serves "no results" for
     everything rather than failing to start."""
     version = os.environ.get("DUMP_URL") or os.environ.get("DUMP_PATH")
     if not version:
         logger.warning("Neither DUMP_URL nor DUMP_PATH is set - serving with empty item/nano stores")
         return
 
-    logger.info("Connecting to Redis")
-    client = get_redis()
+    logger.info("Connecting to Mongo")
+    load_state = get_mongo()["load_state"]
 
-    if await client.get(_LOAD_READY_KEY) == version:
-        logger.info("Dump already loaded in Redis (version=%s) - skipping load", version)
+    doc = await load_state.find_one({"_id": _LOAD_DOC_ID})
+    if doc is not None and doc.get("ready_version") == version:
+        logger.info("Dump already loaded in Mongo (version=%s) - skipping load", version)
         return
 
-    if not await client.set(_LOAD_LOCK_KEY, "1", nx=True, ex=_LOAD_LOCK_TTL_SECONDS):
+    now = datetime.now(timezone.utc)
+    locked_until = now + _LOAD_LOCK_TTL
+    try:
+        # First-ever load: no document exists yet, so this is the Mongo
+        # analogue of Redis's SET NX - whichever pod's insert_one wins the
+        # race gets the lock, the loser's raises a duplicate-key error and
+        # falls through to the CAS below. Deliberately not upsert=True on
+        # the find_one_and_update below instead: an upsert there would try
+        # to insert a second doc with this same _id once one already
+        # exists (just not matching the lock-available filter), which
+        # raises the same duplicate-key error rather than the "no match"
+        # this code needs to tell "someone else holds the lock" apart from
+        # a real failure.
+        await load_state.insert_one({"_id": _LOAD_DOC_ID, "locked_until": locked_until})
+        acquired = {"_id": _LOAD_DOC_ID, "locked_until": locked_until}
+    except DuplicateKeyError:
+        acquired = await load_state.find_one_and_update(
+            {"_id": _LOAD_DOC_ID, "$or": [{"locked_until": {"$lt": now}}, {"locked_until": {"$exists": False}}]},
+            {"$set": {"locked_until": locked_until}},
+            return_document=True,
+        )
+
+    if acquired is None:
         logger.info("Another pod is loading the dump - waiting for it to finish")
         waited = 0.0
         while waited < _LOAD_WAIT_TIMEOUT_SECONDS:
             await asyncio.sleep(0.5)
             waited += 0.5
-            if await client.get(_LOAD_READY_KEY) == version:
+            doc = await load_state.find_one({"_id": _LOAD_DOC_ID})
+            if doc is not None and doc.get("ready_version") == version:
                 logger.info("Dump load finished on another pod after %.1fs - ready", waited)
                 return
-        logger.warning("Timed out waiting for another pod to finish loading the dump - serving what's in Redis")
+        logger.warning("Timed out waiting for another pod to finish loading the dump - serving what's in Mongo")
         return
 
     logger.info("Acquired load lock (version=%s) - this pod will load the dump", version)
     try:
-        if await client.get(_LOAD_READY_KEY) == version:
-            return  # someone else finished between our GET and our SET NX
+        if acquired.get("ready_version") == version:
+            return  # someone else finished between our find_one check and our lock acquire
 
         dump_url = os.environ.get("DUMP_URL")
         if dump_url:
@@ -96,16 +126,16 @@ async def _load_items() -> None:
                 items, nanos = parse_dump_zip(f.read())
             logger.info("Parsed %d items (%d nano programs) from %s", len(items), len(nanos), os.environ["DUMP_PATH"])
 
-        logger.info("Writing %d items to Redis", len(items))
+        logger.info("Writing %d items to Mongo", len(items))
         await store.load(items)
 
-        logger.info("Writing %d nano programs to Redis", len(nanos))
+        logger.info("Writing %d nano programs to Mongo", len(nanos))
         await nano_store.load(nanos)
 
-        await client.set(_LOAD_READY_KEY, version)
+        await load_state.update_one({"_id": _LOAD_DOC_ID}, {"$set": {"ready_version": version}})
         logger.info("Dump load complete (version=%s) - ready to serve", version)
     finally:
-        await client.delete(_LOAD_LOCK_KEY)
+        await load_state.update_one({"_id": _LOAD_DOC_ID}, {"$unset": {"locked_until": ""}})
 
 
 @asynccontextmanager

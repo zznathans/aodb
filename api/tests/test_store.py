@@ -1,7 +1,10 @@
+import pytest
+from pymongo.errors import BulkWriteError
+
 from app.store import ItemStore, make_item
 
 
-async def test_search_matches_substring_case_insensitively(fake_redis):
+async def test_search_matches_substring_case_insensitively(fake_mongo, no_cache):
     store = ItemStore()
     await store.load([make_item(id=1, name="Notum Tank Armor", ql=200)])
 
@@ -12,7 +15,7 @@ async def test_search_matches_substring_case_insensitively(fake_redis):
     assert len(await store.search(query="nope", ql=0, limit=50)) == 0
 
 
-async def test_search_matches_short_substrings_below_the_trigram_window(fake_redis):
+async def test_search_matches_short_substrings_below_the_trigram_window(fake_mongo, no_cache):
     store = ItemStore()
     await store.load([make_item(id=1, name="Notum Tank Armor", ql=200)])
 
@@ -23,7 +26,7 @@ async def test_search_matches_short_substrings_below_the_trigram_window(fake_red
     assert len(await store.search(query="zz", ql=0, limit=50)) == 0
 
 
-async def test_search_blank_query_filters_by_ql_alone(fake_redis):
+async def test_search_blank_query_filters_by_ql_alone(fake_mongo, no_cache):
     store = ItemStore()
     await store.load(
         [
@@ -36,7 +39,7 @@ async def test_search_blank_query_filters_by_ql_alone(fake_redis):
     assert [i.id for i in results] == [1]
 
 
-async def test_search_blank_query_filters_by_category_alone(fake_redis):
+async def test_search_blank_query_filters_by_category_alone(fake_mongo, no_cache):
     store = ItemStore()
     await store.load(
         [
@@ -49,7 +52,7 @@ async def test_search_blank_query_filters_by_category_alone(fake_redis):
     assert [i.id for i in results] == [1]
 
 
-async def test_search_blank_query_filters_by_category_and_ql(fake_redis):
+async def test_search_blank_query_filters_by_category_and_ql(fake_mongo, no_cache):
     store = ItemStore()
     await store.load(
         [
@@ -63,7 +66,7 @@ async def test_search_blank_query_filters_by_category_and_ql(fake_redis):
     assert [i.id for i in results] == [1]
 
 
-async def test_search_filters_by_ql(fake_redis):
+async def test_search_filters_by_ql(fake_mongo, no_cache):
     store = ItemStore()
     await store.load(
         [
@@ -76,7 +79,7 @@ async def test_search_filters_by_ql(fake_redis):
     assert [i.id for i in results] == [1]
 
 
-async def test_search_respects_limit_and_sorts_by_name(fake_redis):
+async def test_search_respects_limit_and_sorts_by_name(fake_mongo, no_cache):
     store = ItemStore()
     await store.load(
         [
@@ -90,7 +93,7 @@ async def test_search_respects_limit_and_sorts_by_name(fake_redis):
     assert [i.name for i in results] == ["Item Alpha", "Item Beta"]
 
 
-async def test_count_reflects_total_loaded(fake_redis):
+async def test_count_reflects_total_loaded(fake_mongo, no_cache):
     store = ItemStore()
     assert await store.count(query="", ql=0) == 0
 
@@ -98,7 +101,7 @@ async def test_count_reflects_total_loaded(fake_redis):
     assert await store.count(query="", ql=0) == 1
 
 
-async def test_search_respects_offset(fake_redis):
+async def test_search_respects_offset(fake_mongo, no_cache):
     store = ItemStore()
     await store.load(
         [
@@ -112,7 +115,7 @@ async def test_search_respects_offset(fake_redis):
     assert [i.name for i in results] == ["Item Beta", "Item Gamma"]
 
 
-async def test_count_reflects_total_matches_not_limit(fake_redis):
+async def test_count_reflects_total_matches_not_limit(fake_mongo, no_cache):
     store = ItemStore()
     await store.load(
         [
@@ -126,7 +129,7 @@ async def test_count_reflects_total_matches_not_limit(fake_redis):
     assert len(await store.search(query="Item", ql=0, limit=1)) == 1
 
 
-async def test_get_returns_item_by_id_or_none(fake_redis):
+async def test_get_returns_item_by_id_or_none(fake_mongo, no_cache):
     store = ItemStore()
     await store.load([make_item(id=42, name="Notum Tank Armor")])
 
@@ -135,7 +138,7 @@ async def test_get_returns_item_by_id_or_none(fake_redis):
     assert await store.get(999) is None
 
 
-async def test_list_ids_returns_every_id_regardless_of_name(fake_redis):
+async def test_list_ids_returns_every_id_regardless_of_name(fake_mongo, no_cache):
     store = ItemStore()
     await store.load(
         [
@@ -149,7 +152,7 @@ async def test_list_ids_returns_every_id_regardless_of_name(fake_redis):
     assert set(ids) == {1, 2, 3}
 
 
-async def test_list_ids_respects_limit_and_offset(fake_redis):
+async def test_list_ids_respects_limit_and_offset(fake_mongo, no_cache):
     store = ItemStore()
     await store.load([make_item(id=i, name=f"Item{i}") for i in range(1, 6)])
 
@@ -160,7 +163,7 @@ async def test_list_ids_respects_limit_and_offset(fake_redis):
     assert set(first_page) & set(second_page) == set()
 
 
-async def test_load_does_not_flush_existing_data(fake_redis):
+async def test_load_does_not_flush_existing_data(fake_mongo, no_cache):
     store = ItemStore()
     await store.load([make_item(id=1, name="Old Item")])
     await store.load([make_item(id=2, name="New Item")])
@@ -169,7 +172,7 @@ async def test_load_does_not_flush_existing_data(fake_redis):
     assert await store.get(2) is not None
 
 
-async def test_load_skips_ids_that_already_exist(fake_redis):
+async def test_load_skips_ids_that_already_exist(fake_mongo, no_cache):
     store = ItemStore()
     await store.load([make_item(id=1, name="Original Name", ql=100)])
     await store.load([make_item(id=1, name="Changed Name", ql=200)])
@@ -179,7 +182,27 @@ async def test_load_skips_ids_that_already_exist(fake_redis):
     assert item.ql == 100
 
 
-async def test_load_category_counts_reflect_the_full_incoming_list_each_time(fake_redis):
+async def test_load_reraises_non_duplicate_key_bulk_write_errors(fake_mongo, no_cache, monkeypatch):
+    store = ItemStore()
+
+    # _collection() builds a new proxy object on every call (verified
+    # against mongomock-motor) - pin it to always return this one instance
+    # so the insert_many patch below is actually visible to load().
+    real_collection = store._collection()
+    monkeypatch.setattr(store, "_collection", lambda: real_collection)
+
+    async def boom(_docs, ordered=False):
+        raise BulkWriteError(
+            {"writeErrors": [{"index": 0, "code": 12345, "errmsg": "not a duplicate key"}], "nInserted": 0}
+        )
+
+    monkeypatch.setattr(real_collection, "insert_many", boom)
+
+    with pytest.raises(BulkWriteError):
+        await store.load([make_item(id=1, name="x")])
+
+
+async def test_load_category_counts_reflect_the_full_incoming_list_each_time(fake_mongo, no_cache):
     store = ItemStore()
     await store.load([make_item(id=1, name="Item One", category="armor")])
     await store.load(

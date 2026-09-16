@@ -1,13 +1,56 @@
 aodbApi:
   # -- Public HTTPS URL to the item dump zip (a zipped <aodb><item aoid="..." .../></aodb> XML
-  # file). Downloaded fresh into memory on every pod start - no database, no credentials.
+  # file). Downloaded fresh into memory on whichever pod wins the startup load race, then
+  # written to Mongo (see aodbApi.mongoUrl) - no credentials needed for the dump fetch itself.
   dumpUrl: ""
 
-  # -- Connection URL for the Redis instance this app uses to store the loaded item dump and
-  # back its search index (see the app's own README) - e.g. redis://my-redis:6379/0, or
-  # redis://:password@my-redis:6379/0 if auth is enabled. Takes precedence over
-  # aodbApi.redis.enabled if both are set. Leave unset (and set aodbApi.redis.enabled=true)
-  # to use the chart's own bundled Redis instead of pointing at an externally-provisioned one.
+  # -- Connection URL for the MongoDB instance this app uses as its primary datastore (the
+  # loaded, indexed item/nano catalog - see the app's own README) - e.g.
+  # mongodb://my-mongo:27017/aodb, or mongodb://user:pass@my-mongo:27017/aodb if auth is
+  # enabled. Takes precedence over aodbApi.mongo.enabled if both are set. Leave unset (and set
+  # aodbApi.mongo.enabled=true) to use the chart's own bundled MongoDB instead of pointing at
+  # an externally-provisioned one. Required one way or the other - the app has no database to
+  # fall back to.
+  mongoUrl: ""
+
+  mongo:
+    # -- Deploy a bundled MongoDB instance (a plain single-replica StatefulSet - no operator
+    # assumed, unlike aodbApi.redis below) alongside this app, instead of requiring an
+    # externally-provisioned aodbApi.mongoUrl. Off by default: enabling this for an existing
+    # installation that already points aodbApi.mongoUrl at its own Mongo would otherwise start
+    # deploying an unwanted, unused second Mongo instance.
+    enabled: false
+
+    image:
+      # -- Container image repository for the bundled MongoDB instance.
+      repository: mongo
+      # -- Container image tag for the bundled MongoDB instance.
+      tag: "8.0"
+      # -- Image pull policy for the bundled MongoDB instance.
+      pullPolicy: IfNotPresent
+
+    # -- Resource requests and limits for the bundled MongoDB instance's container.
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 768Mi
+
+    storage:
+      # -- Size of the PersistentVolumeClaim provisioned for the bundled MongoDB instance. The
+      # full dump is ~65MB decompressed (see app/dump_loader.py) - this leaves headroom for
+      # indexes (name/category/ql/profession/trigram - see app/store.py) and WiredTiger
+      # overhead on top of the raw data size.
+      size: 1Gi
+
+  # -- Connection URL for the Redis instance this app uses as an optional cache-aside layer in
+  # front of its more expensive search queries (see the app's own README) - e.g.
+  # redis://my-redis:6379/0. Takes precedence over aodbApi.redis.enabled if both are set. Leave
+  # both unset to run with no cache at all - Mongo is the source of truth either way, so a
+  # missing/unreachable Redis only costs some query latency, never correctness (see
+  # app/store.py's _cached_json).
   redisUrl: ""
 
   redis:
@@ -115,9 +158,9 @@ aodbApi:
   # -- Extra labels to add to the pod template, in addition to the chart-managed `app` label.
   podLabels: {}
 
-  # -- Extra environment variables to set on the app container, in addition to DUMP_URL and
-  # REDIS_URL. Each entry is a raw Kubernetes EnvVar (supports valueFrom, e.g. secretKeyRef) -
-  # e.g. for API_ANALYTICS_KEY (see the app's own README).
+  # -- Extra environment variables to set on the app container, in addition to DUMP_URL,
+  # MONGO_URL and REDIS_URL. Each entry is a raw Kubernetes EnvVar (supports valueFrom, e.g.
+  # secretKeyRef) - e.g. for API_ANALYTICS_KEY (see the app's own README).
   extraEnv: []
 
   # -- Raw HTML for client-side analytics (e.g. a Cloudflare beacon or Google Analytics

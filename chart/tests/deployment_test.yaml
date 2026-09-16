@@ -5,7 +5,7 @@ tests:
   - it: renders a single deployment using the configured image
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
       aodbApi.imageRepository: ghcr.io/zznathans/aodb-api
       aodbApi.imageTag: "1.2.3"
     asserts:
@@ -20,7 +20,7 @@ tests:
   - it: passes dumpUrl through as DUMP_URL
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
     asserts:
       - equal:
           path: spec.template.spec.containers[0].env[0].name
@@ -31,59 +31,108 @@ tests:
 
   - it: fails when dumpUrl is not set
     set:
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
     asserts:
       - failedTemplate:
           errorMessage: "aodbApi.dumpUrl is required"
 
-  - it: passes redisUrl through as REDIS_URL
+  - it: passes mongoUrl through as MONGO_URL
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
     asserts:
       - equal:
           path: spec.template.spec.containers[0].env[1].name
-          value: REDIS_URL
+          value: MONGO_URL
       - equal:
           path: spec.template.spec.containers[0].env[1].value
-          value: redis://example-redis:6379/0
+          value: mongodb://example-mongo:27017/aodb
 
-  - it: fails when neither redisUrl nor redis.enabled is set
+  - it: fails when neither mongoUrl nor mongo.enabled is set
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
     asserts:
       - failedTemplate:
-          errorMessage: "aodbApi.redisUrl is required (or set aodbApi.redis.enabled=true to deploy a bundled Redis)"
+          errorMessage: "aodbApi.mongoUrl is required (or set aodbApi.mongo.enabled=true to deploy a bundled MongoDB)"
+
+  - it: derives MONGO_URL from the bundled mongo service when mongo.enabled and mongoUrl is unset
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.mongo.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[1].name
+          value: MONGO_URL
+      - equal:
+          path: spec.template.spec.containers[0].env[1].value
+          value: mongodb://RELEASE-NAME-mongo.NAMESPACE.svc.cluster.local:27017/aodb
+
+  - it: explicit mongoUrl wins over mongo.enabled when both are set
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
+      aodbApi.mongo.enabled: true
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[1].name
+          value: MONGO_URL
+      - equal:
+          path: spec.template.spec.containers[0].env[1].value
+          value: mongodb://example-mongo:27017/aodb
+
+  - it: no REDIS_URL by default (Redis is an optional cache, not required)
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
+    asserts:
+      - lengthEqual:
+          path: spec.template.spec.containers[0].env
+          count: 2
+
+  - it: passes redisUrl through as REDIS_URL when set
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
+      aodbApi.redisUrl: redis://example-redis:6379/0
+    asserts:
+      - equal:
+          path: spec.template.spec.containers[0].env[2].name
+          value: REDIS_URL
+      - equal:
+          path: spec.template.spec.containers[0].env[2].value
+          value: redis://example-redis:6379/0
 
   - it: derives REDIS_URL from the bundled redis service when redis.enabled and redisUrl is unset
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
       aodbApi.redis.enabled: true
     asserts:
       - equal:
-          path: spec.template.spec.containers[0].env[1].name
+          path: spec.template.spec.containers[0].env[2].name
           value: REDIS_URL
       - equal:
-          path: spec.template.spec.containers[0].env[1].value
+          path: spec.template.spec.containers[0].env[2].value
           value: redis://RELEASE-NAME-redis.NAMESPACE.svc.cluster.local:6379/0
 
   - it: explicit redisUrl wins over redis.enabled when both are set
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
       aodbApi.redisUrl: redis://example-redis:6379/0
       aodbApi.redis.enabled: true
     asserts:
       - equal:
-          path: spec.template.spec.containers[0].env[1].name
+          path: spec.template.spec.containers[0].env[2].name
           value: REDIS_URL
       - equal:
-          path: spec.template.spec.containers[0].env[1].value
+          path: spec.template.spec.containers[0].env[2].value
           value: redis://example-redis:6379/0
 
   - it: defaults to a single replica
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
     asserts:
       - equal:
           path: spec.replicas
@@ -92,7 +141,7 @@ tests:
   - it: scales up via replicaCount
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
       aodbApi.replicaCount: 3
     asserts:
       - equal:
@@ -102,7 +151,7 @@ tests:
   - it: omits spec.replicas when keda is enabled
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
       aodbApi.keda.enabled: true
       aodbApi.keda.triggers:
         - type: cpu
@@ -116,7 +165,7 @@ tests:
   - it: runs as a non-root user with hardened security context
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
     asserts:
       - equal:
           path: spec.template.spec.containers[0].securityContext.runAsNonRoot
@@ -128,7 +177,7 @@ tests:
   - it: has no extra pod annotations beyond the built-in AppArmor one, and no extra labels, by default
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
     asserts:
       - equal:
           path: spec.template.metadata.annotations
@@ -142,7 +191,7 @@ tests:
   - it: adds podAnnotations to the pod template alongside the built-in AppArmor one
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
       aodbApi.podAnnotations:
         example.com/annotation: hello
     asserts:
@@ -155,7 +204,7 @@ tests:
   - it: adds podLabels to the pod template alongside the app label
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
       aodbApi.podLabels:
         example.com/label: hello
     asserts:
@@ -165,10 +214,10 @@ tests:
             app: RELEASE-NAME
             example.com/label: hello
 
-  - it: appends extraEnv after DUMP_URL and REDIS_URL
+  - it: appends extraEnv after DUMP_URL and MONGO_URL
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
       aodbApi.extraEnv:
         - name: API_ANALYTICS_KEY
           valueFrom:
@@ -186,7 +235,7 @@ tests:
   - it: no extraEnv by default
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
     asserts:
       - lengthEqual:
           path: spec.template.spec.containers[0].env
@@ -195,7 +244,7 @@ tests:
   - it: no analytics-html volume or mount by default
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
     asserts:
       - isNull:
           path: spec.template.spec.volumes
@@ -205,7 +254,7 @@ tests:
   - it: mounts the analytics-html ConfigMap over _analytics.html when analyticsHtml is set
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
       aodbApi.analyticsHtml: <script>hi</script>
     asserts:
       - equal:
@@ -222,25 +271,25 @@ tests:
             subPath: _analytics.html
             readOnly: true
 
-  - it: no wait-for-redis initContainer by default (external redisUrl)
+  - it: no wait-for-mongo initContainer by default (external mongoUrl)
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
     asserts:
       - isNull:
           path: spec.template.spec.initContainers
 
-  - it: adds a wait-for-redis initContainer targeting the bundled redis service when redis.enabled
+  - it: adds a wait-for-mongo initContainer targeting the bundled mongo service when mongo.enabled
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redis.enabled: true
+      aodbApi.mongo.enabled: true
     asserts:
       - equal:
           path: spec.template.spec.initContainers[0].name
-          value: wait-for-redis
+          value: wait-for-mongo
       - matchRegex:
           path: spec.template.spec.initContainers[0].command[2]
-          pattern: RELEASE-NAME-redis\.NAMESPACE\.svc\.cluster\.local 6379
+          pattern: RELEASE-NAME-mongo\.NAMESPACE\.svc\.cluster\.local 27017
       - equal:
           path: spec.template.spec.initContainers[0].securityContext.runAsNonRoot
           value: true
@@ -248,10 +297,19 @@ tests:
           path: spec.template.spec.initContainers[0].securityContext.capabilities.drop[0]
           value: ALL
 
-  - it: no wait-for-redis initContainer when explicit redisUrl wins over redis.enabled
+  - it: no wait-for-mongo initContainer when explicit mongoUrl wins over mongo.enabled
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
-      aodbApi.redisUrl: redis://example-redis:6379/0
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
+      aodbApi.mongo.enabled: true
+    asserts:
+      - isNull:
+          path: spec.template.spec.initContainers
+
+  - it: no wait-for-mongo initContainer just because redis.enabled is set (Redis has no init wait)
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
       aodbApi.redis.enabled: true
     asserts:
       - isNull:

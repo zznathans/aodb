@@ -5,3 +5,4 @@ pytest-cov==7.1.0
 httpx==0.28.1
 ruff==0.16.6
 fakeredis==2.38.0
+mongomock-motor==0.0.36
