@@ -301,6 +301,21 @@ async def test_browse_nanos_by_unknown_profession_404s(client):
     assert resp.status_code == 404
 
 
+async def test_browse_nanos_professions_general_shows_generic_nanos(client):
+    await nano_store.load(
+        [
+            make_nano(id=1, name="Agent Only Nano", crystal_id=1, description="x", profession=5),
+            make_nano(id=2, name="Generic Heal", crystal_id=2, description="x"),
+        ]
+    )
+
+    resp = client.get("/nanos/professions/general")
+
+    assert resp.status_code == 200
+    assert "Generic Heal" in resp.text
+    assert "Agent Only Nano" not in resp.text
+
+
 async def test_browse_nano_detail_renders_nano(client):
     await _seed_nanos()
 
