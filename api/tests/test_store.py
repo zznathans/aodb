@@ -1,7 +1,7 @@
 import pytest
 from pymongo.errors import BulkWriteError
 
-from app.store import ItemStore, make_item
+from app.store import _BATCH_SIZE, ItemStore, make_item
 
 
 async def test_search_matches_substring_case_insensitively(fake_mongo, no_cache):
@@ -200,6 +200,48 @@ async def test_load_reraises_non_duplicate_key_bulk_write_errors(fake_mongo, no_
 
     with pytest.raises(BulkWriteError):
         await store.load([make_item(id=1, name="x")])
+
+
+async def test_insert_items_builds_docs_lazily_batch_at_a_time(fake_mongo, no_cache, monkeypatch):
+    """insert_items() used to build a Mongo doc (with its trigrams array -
+    see _trigrams) for every incoming item upfront, in one list
+    comprehension, before writing any of them - on top of the already-
+    resident parsed Item objects, that doubled peak memory for the full
+    dump and OOMKilled a real pod mid-load. Confirms doc construction now
+    stays interleaved with each batch's insert instead of running ahead
+    of it."""
+    store = ItemStore()
+    items = [make_item(id=i, name=f"Item {i}") for i in range(1, _BATCH_SIZE * 2 + 5)]
+
+    doc_calls = {"n": 0}
+    real_item_to_doc = store._item_to_doc
+
+    def counting_item_to_doc(item):
+        doc_calls["n"] += 1
+        return real_item_to_doc(item)
+
+    monkeypatch.setattr(store, "_item_to_doc", counting_item_to_doc)
+
+    # _collection() builds a new proxy object on every call (verified
+    # against mongomock-motor) - pin it so the insert_many patch below is
+    # actually visible to insert_items().
+    real_collection = store._collection()
+    monkeypatch.setattr(store, "_collection", lambda: real_collection)
+    real_insert_many = real_collection.insert_many
+    calls_at_first_insert = {}
+
+    async def recording_insert_many(batch, **kwargs):
+        calls_at_first_insert.setdefault("n", doc_calls["n"])
+        return await real_insert_many(batch, **kwargs)
+
+    monkeypatch.setattr(real_collection, "insert_many", recording_insert_many)
+
+    await store.insert_items(items)
+
+    # Only the first batch's worth of docs should exist by the time the
+    # first insert_many fires - not every doc for the whole incoming list.
+    assert calls_at_first_insert["n"] == _BATCH_SIZE
+    assert doc_calls["n"] == len(items)
 
 
 async def test_load_category_counts_reflect_the_full_incoming_list_each_time(fake_mongo, no_cache):
