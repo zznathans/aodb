@@ -182,15 +182,52 @@ async def test_load_items_releases_lock_on_exception(fake_redis, fake_mongo, mon
     async def boom(_items):
         raise RuntimeError("boom")
 
-    monkeypatch.setattr(store, "load", boom)
+    monkeypatch.setattr(store, "insert_items", boom)
 
     with pytest.raises(RuntimeError, match="boom"):
         await _load_items()
 
-    # The lock must still be released even though loading blew up.
     doc = await _load_doc(fake_mongo)
     assert "locked_until" not in doc
     assert "ready_version" not in doc
+
+
+async def test_load_items_skips_migrations_already_recorded_for_this_version(
+    fake_redis, fake_mongo, monkeypatch, tmp_path
+):
+    """A migration already recorded complete for the current dump version
+    (e.g. from a prior run that crashed partway through a later step) must
+    not be re-run - this is the whole point of tracking them individually
+    instead of one all-or-nothing store.load()/nano_store.load() call."""
+    dump_path = _write_dump_zip(tmp_path / "dump.zip")
+    monkeypatch.setenv("DUMP_PATH", dump_path)
+
+    async def boom(_items):
+        raise AssertionError("load_items must not run - it was already recorded complete")
+
+    monkeypatch.setattr(store, "insert_items", boom)
+    await fake_mongo["migrations"].insert_one({"_id": f"{dump_path}:load_items", "version": dump_path})
+
+    await _load_items()
+
+    # Every other migration still ran normally.
+    assert await nano_store.count("", 0, "", None) == 1
+    assert (await _load_doc(fake_mongo))["ready_version"] == dump_path
+
+
+async def test_load_items_reruns_migrations_for_a_new_dump_version(fake_redis, fake_mongo, monkeypatch, tmp_path):
+    """A migration recorded for a *different* (older) dump version doesn't
+    count as done for the current one - each dump version gets its own
+    full set of migrations."""
+    dump_path = _write_dump_zip(tmp_path / "dump.zip")
+    monkeypatch.setenv("DUMP_PATH", dump_path)
+    await fake_mongo["migrations"].insert_one({"_id": "some-older-version:load_items", "version": "some-older-version"})
+
+    await _load_items()
+
+    assert await store.count("", 0) == 2
+    assert await nano_store.count("", 0, "", None) == 1
+    assert (await _load_doc(fake_mongo))["ready_version"] == dump_path
 
 
 def _make_request(path: str) -> Request:

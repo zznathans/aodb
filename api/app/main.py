@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
 
@@ -23,7 +24,7 @@ from .legacy import router as legacy_router
 from .mongo_client import get_mongo
 from .professions import router as professions_router
 from .sitemap import router as sitemap_router
-from .store import nano_store, store
+from .store import Item, NanoProgram, nano_store, store
 from .web import router as web_router
 
 # uvicorn/fastapi only configure their own named loggers (uvicorn,
@@ -56,6 +57,50 @@ _LOAD_DOC_ID = "load"
 _LOAD_LOCK_TTL = timedelta(seconds=300)
 _LOAD_WAIT_TIMEOUT_SECONDS = 120
 
+# The actual write work (index creation, bulk inserts, count aggregation)
+# used to happen as one all-or-nothing call each to store.load()/
+# nano_store.load() - a crash/OOMKill partway through meant the next pod
+# to pick up the lock redid all of it from scratch (cheap for the mostly-
+# idempotent Mongo writes themselves, but still real time re-parsing +
+# re-running everything before the app could ever become ready). Named,
+# ordered migrations give each step independent visibility (logged, and
+# recorded in the "migrations" collection below) and let a resumed load
+# skip whatever already finished, rather than redoing the whole thing.
+# Every step takes the full parsed dump - re-parsing per pod restart is
+# cheap (~5-10s for the whole dump, see app/dump_loader.py) compared to
+# persisting/re-hydrating a partial parse result, so that's not itself
+# tracked as a migration.
+_MIGRATIONS: list[tuple[str, Callable[[list[Item], list[NanoProgram]], Awaitable[None]]]] = [
+    ("ensure_indexes_items", lambda items, nanos: store.ensure_indexes()),
+    ("ensure_indexes_nanos", lambda items, nanos: nano_store.ensure_indexes()),
+    ("load_items", lambda items, nanos: store.insert_items(items)),
+    ("load_nanos", lambda items, nanos: nano_store.insert_nanos(nanos)),
+    ("compute_item_counts", lambda items, nanos: store.compute_counts(items)),
+    ("compute_nano_counts", lambda items, nanos: nano_store.compute_counts(nanos)),
+]
+
+
+async def _run_pending_migrations(version: str, items: list[Item], nanos: list[NanoProgram]) -> None:
+    """Runs every migration in _MIGRATIONS not yet recorded complete for
+    this dump version, in order, recording each as it finishes. Migration
+    docs are permanent (never cleaned up) and keyed by "{version}:{name}",
+    so a later dump version starts every migration fresh while a retried
+    load of the *same* version picks up wherever it left off."""
+    migrations = get_mongo()["migrations"]
+    for name, step in _MIGRATIONS:
+        migration_id = f"{version}:{name}"
+        if await migrations.find_one({"_id": migration_id}) is not None:
+            logger.info("Migration %s already completed (version=%s) - skipping", name, version)
+            continue
+        logger.info("Running migration %s (version=%s)", name, version)
+        await step(items, nanos)
+        await migrations.update_one(
+            {"_id": migration_id},
+            {"$set": {"version": version, "name": name, "completed_at": datetime.now(timezone.utc)}},
+            upsert=True,
+        )
+        logger.info("Migration %s complete (version=%s)", name, version)
+
 
 async def _load_items() -> None:
     """Loads the item dump into Mongo before the app starts accepting
@@ -63,7 +108,12 @@ async def _load_items() -> None:
     DUMP_URL pulls the dump zip from its public HTTPS URL - the normal
     deployed path. DUMP_PATH loads a local dump zip instead, for local dev.
     With neither set, Mongo stays empty and the API serves "no results" for
-    everything rather than failing to start."""
+    everything rather than failing to start.
+
+    The dump is parsed once, then written via _run_pending_migrations - see
+    _MIGRATIONS above for why that's a series of small, individually
+    tracked steps rather than one call each to store.load()/
+    nano_store.load()."""
     version = os.environ.get("DUMP_URL") or os.environ.get("DUMP_PATH")
     if not version:
         logger.warning("Neither DUMP_URL nor DUMP_PATH is set - serving with empty item/nano stores")
@@ -126,11 +176,7 @@ async def _load_items() -> None:
                 items, nanos = parse_dump_zip(f.read())
             logger.info("Parsed %d items (%d nano programs) from %s", len(items), len(nanos), os.environ["DUMP_PATH"])
 
-        logger.info("Writing %d items to Mongo", len(items))
-        await store.load(items)
-
-        logger.info("Writing %d nano programs to Mongo", len(nanos))
-        await nano_store.load(nanos)
+        await _run_pending_migrations(version, items, nanos)
 
         await load_state.update_one({"_id": _LOAD_DOC_ID}, {"$set": {"ready_version": version}})
         logger.info("Dump load complete (version=%s) - ready to serve", version)
