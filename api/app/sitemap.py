@@ -20,7 +20,7 @@ from .store import nano_store, store
 
 router = APIRouter()
 
-_MAX_URLS_PER_SITEMAP = 500
+_MAX_URLS_PER_SITEMAP = 50000
 _CACHE_CONTROL = "public, max-age=300"
 _SITEMAP_NS = "http://www.sitemaps.org/schemas/sitemap/0.9"
 _XML_DECLARATION = '<?xml version="1.0" encoding="UTF-8"?>\n'
