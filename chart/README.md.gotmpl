@@ -18,11 +18,19 @@ terminate TLS there, typically paired with a
 `cert-manager.io/cluster-issuer` annotation under
 `aodbApi.ingress.annotations` for automatic certificate issuance.
 
-The app stores the loaded dump and its search index in Redis
-(`aodbApi.redisUrl`) - by default this chart doesn't deploy Redis itself,
+The app stores the loaded dump and its search index in MongoDB
+(`aodbApi.mongoUrl`) - by default this chart doesn't deploy Mongo itself,
 point it at whatever instance you've already got running. Alternatively,
-set `aodbApi.redis.enabled=true` to have the chart deploy its own
-dedicated Redis instance instead (via the
+set `aodbApi.mongo.enabled=true` to have the chart deploy its own
+dedicated MongoDB instance instead (a plain single-replica StatefulSet, no
+operator required). `aodbApi.mongoUrl` always takes precedence when set,
+and one of the two is required - the app has no database to fall back to.
+
+Redis (`aodbApi.redisUrl`) is optional: the app uses it as a cache-aside
+layer in front of its more expensive search queries if set, but runs fine
+without one - Mongo is the actual source of truth. Set
+`aodbApi.redis.enabled=true` to have the chart deploy its own dedicated
+Redis instance instead (via the
 [redis-operator](https://github.com/OT-CONTAINER-KIT/redis-operator)
 `Redis` custom resource, standalone mode - the operator's CRDs must
 already be installed in the target cluster). `aodbApi.redisUrl` always
@@ -49,7 +57,7 @@ a ConfigMap and mounts it into the pod for you - no image rebuild needed.
 ```
 helm lint chart --strict \
   --set aodbApi.dumpUrl=https://example.invalid/dump.xml.zip \
-  --set aodbApi.redisUrl=redis://example-redis:6379/0
+  --set aodbApi.mongoUrl=mongodb://example-mongo:27017/aodb
 helm unittest chart
 ```
 

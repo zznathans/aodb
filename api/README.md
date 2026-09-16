@@ -85,25 +85,36 @@ and show the raw response verbatim in chat.
 ## Data
 
 The item dump (a zipped `<aodb><item aoid="..." .../></aodb>` XML file, e.g.
-`171003.xml.zip`) is parsed once and stored in Redis (`app/dump_loader.py`,
+`171003.xml.zip`) is parsed once and stored in MongoDB (`app/dump_loader.py`,
 `app/store.py`), shared by every pod rather than each pod holding its own
-in-memory copy. On startup, whichever pod acquires a short-lived Redis lock
-does the parse-and-load; the rest just wait for it to finish and then read
-straight from Redis. Readiness is gated on this completing.
+in-memory copy. On startup, whichever pod acquires a short-lived Mongo-backed
+lock does the parse-and-load; the rest just wait for it to finish and then
+read straight from Mongo. Readiness is gated on this completing.
 
 Name search (`q=`) is a substring match, not just a prefix - `q=smg` matches
-"Combat SMG". Backed by a Redis trigram index (3-char sliding windows of each
-name, also built in `app/store.py`) that narrows the search down before a
-final in-Python check confirms the actual match and sorts the results; query
+"Combat SMG". Backed by a trigram index (3-char sliding windows of each name,
+stored as a `trigrams` array field and queried with a multikey index, also
+built in `app/store.py`) that narrows the search down before a final
+in-Python check confirms the actual match and sorts the results; query
 strings under 3 characters can't use that index and fall back to a full scan
 instead (see the module docstring in `app/store.py` for the full design).
 
-Set `REDIS_URL` to point at Redis (default `redis://localhost:6379/0`). The
-Redis instance is assumed dedicated to this app. A load never flushes first
-(so an in-progress or crashed load can't leave other pods reading an empty
-store) - it writes whatever ids aren't already present and skips the rest,
-which also makes reloading the same or overlapping dump cheap. Ids removed
-from a newer dump version aren't cleaned up automatically.
+Set `MONGO_URL` to point at MongoDB (default `mongodb://localhost:27017/aodb`).
+The Mongo instance is assumed dedicated to this app. A load never deletes or
+replaces existing documents first (so an in-progress or crashed load can't
+leave other pods reading an empty store) - it writes whatever ids aren't
+already present and skips the rest (`insert_many(ordered=False)`, relying on
+the unique `_id` index to reject already-loaded ids), which also makes
+reloading the same or overlapping dump cheap. Ids removed from a newer dump
+version aren't cleaned up automatically.
+
+Redis is optional: set `REDIS_URL` to point at a Redis instance and it's used
+as a cache-aside layer in front of `search()`/`count()` (the two queries
+expensive enough to be worth caching - see `app/store.py`'s `_cached_json`),
+with a short TTL rather than active invalidation on reload. Mongo is the
+actual source of truth, so a missing or unreachable Redis only costs some
+query latency, never correctness or availability - every Redis call here is
+wrapped to log and fall back to querying Mongo directly on any error.
 
 ## Analytics
 
@@ -148,12 +159,16 @@ exporter).
 ```
 cd api
 pip install -r requirements-dev.txt
-redis-server &
+mongod &
 DUMP_PATH=/path/to/171003.xml.zip uvicorn app.main:app --reload
 pytest
 ```
 
-Tests use `fakeredis` and don't need a real Redis instance running.
+Redis is optional locally too - only set `REDIS_URL`/run `redis-server` if
+you want to exercise the cache layer; the app runs fine without it.
+
+Tests use `mongomock-motor` and `fakeredis` and don't need a real Mongo or
+Redis instance running.
 
 `DUMP_URL` (used in production) works too; `DUMP_PATH` is for a local file
 without needing network access.

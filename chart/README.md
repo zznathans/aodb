@@ -18,11 +18,19 @@ terminate TLS there, typically paired with a
 `cert-manager.io/cluster-issuer` annotation under
 `aodbApi.ingress.annotations` for automatic certificate issuance.
 
-The app stores the loaded dump and its search index in Redis
-(`aodbApi.redisUrl`) - by default this chart doesn't deploy Redis itself,
+The app stores the loaded dump and its search index in MongoDB
+(`aodbApi.mongoUrl`) - by default this chart doesn't deploy Mongo itself,
 point it at whatever instance you've already got running. Alternatively,
-set `aodbApi.redis.enabled=true` to have the chart deploy its own
-dedicated Redis instance instead (via the
+set `aodbApi.mongo.enabled=true` to have the chart deploy its own
+dedicated MongoDB instance instead (a plain single-replica StatefulSet, no
+operator required). `aodbApi.mongoUrl` always takes precedence when set,
+and one of the two is required - the app has no database to fall back to.
+
+Redis (`aodbApi.redisUrl`) is optional: the app uses it as a cache-aside
+layer in front of its more expensive search queries if set, but runs fine
+without one - Mongo is the actual source of truth. Set
+`aodbApi.redis.enabled=true` to have the chart deploy its own dedicated
+Redis instance instead (via the
 [redis-operator](https://github.com/OT-CONTAINER-KIT/redis-operator)
 `Redis` custom resource, standalone mode - the operator's CRDs must
 already be installed in the target cluster). `aodbApi.redisUrl` always
@@ -47,12 +55,12 @@ a ConfigMap and mounts it into the pod for you - no image rebuild needed.
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
 | aodbApi.analyticsHtml | string | `""` | Raw HTML for client-side analytics (e.g. a Cloudflare beacon or Google Analytics snippet), included verbatim on /api and every browse UI page - see the app's own README for app/templates/_analytics.html. That file is gitignored and never part of the published image, so it can't just be baked in; setting this instead renders it into a ConfigMap and mounts it over that path in the pod. Leave unset (the default) for no client-side analytics at all - this is unrelated to aodbApi.extraEnv's API_ANALYTICS_KEY, which is server-side request analytics, not a page script. |
-| aodbApi.dumpUrl | string | `""` | Public HTTPS URL to the item dump zip (a zipped <aodb><item aoid="..." .../></aodb> XML file). Downloaded fresh into memory on every pod start - no database, no credentials. |
-| aodbApi.extraEnv | list | `[]` | Extra environment variables to set on the app container, in addition to DUMP_URL and REDIS_URL. Each entry is a raw Kubernetes EnvVar (supports valueFrom, e.g. secretKeyRef) - e.g. for API_ANALYTICS_KEY (see the app's own README). |
+| aodbApi.dumpUrl | string | `""` | Public HTTPS URL to the item dump zip (a zipped <aodb><item aoid="..." .../></aodb> XML file). Downloaded fresh into memory on whichever pod wins the startup load race, then written to Mongo (see aodbApi.mongoUrl) - no credentials needed for the dump fetch itself. |
+| aodbApi.extraEnv | list | `[]` | Extra environment variables to set on the app container, in addition to DUMP_URL, MONGO_URL and REDIS_URL. Each entry is a raw Kubernetes EnvVar (supports valueFrom, e.g. secretKeyRef) - e.g. for API_ANALYTICS_KEY (see the app's own README). |
 | aodbApi.extraObjects | list | `[]` | Raw Kubernetes objects to render alongside chart-managed resources. |
 | aodbApi.imagePullSecrets | list | `[]` | List of image pull secret names to attach to the ServiceAccount. Leave empty if the registry is public. |
 | aodbApi.imageRepository | string | `"ghcr.io/zznathans/aodb"` | Container image registry and repository for the aodb-api image. |
-| aodbApi.imageTag | string | `"1.10.3"` | Image tag to deploy. |
+| aodbApi.imageTag | string | `"1.11.3"` | Image tag to deploy. |
 | aodbApi.ingress.annotations | object | `{}` | Extra annotations on the Ingress - e.g. cert-manager.io/cluster-issuer, to have cert-manager automatically issue the TLS certificate referenced by ingress.tls.secretName below. |
 | aodbApi.ingress.className | string | `""` | IngressClass to use (e.g. "traefik"). Empty uses the cluster's default IngressClass. |
 | aodbApi.ingress.enabled | bool | `false` | Create an Ingress routing to this app's Service. Off by default - see the chart README for why (the Service is meant to sit behind whatever externally-managed ingress/traffic routing your cluster already uses; this is an opt-in alternative for clusters that route via a Kubernetes Ingress controller instead). |
@@ -65,6 +73,13 @@ a ConfigMap and mounts it into the pod for you - no image rebuild needed.
 | aodbApi.keda.minReplicaCount | int | `1` | Minimum replica count KEDA will scale down to. |
 | aodbApi.keda.pollingInterval | int | `30` | How often (seconds) KEDA checks trigger metrics. |
 | aodbApi.keda.triggers | list | `[]` | KEDA scaler trigger definitions (see https://keda.sh/docs/latest/scalers/), rendered verbatim into the ScaledObject's spec.triggers. Required (non-empty) when aodbApi.keda.enabled - e.g. a cpu trigger, or a prometheus trigger against this app's own /metrics endpoint (aodbApi.serviceMonitor). |
+| aodbApi.mongo.enabled | bool | `false` | Deploy a bundled MongoDB instance (a plain single-replica StatefulSet - no operator assumed, unlike aodbApi.redis below) alongside this app, instead of requiring an externally-provisioned aodbApi.mongoUrl. Off by default: enabling this for an existing installation that already points aodbApi.mongoUrl at its own Mongo would otherwise start deploying an unwanted, unused second Mongo instance. |
+| aodbApi.mongo.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy for the bundled MongoDB instance. |
+| aodbApi.mongo.image.repository | string | `"mongo"` | Container image repository for the bundled MongoDB instance. |
+| aodbApi.mongo.image.tag | string | `"8.0"` | Container image tag for the bundled MongoDB instance. |
+| aodbApi.mongo.resources | object | `{"limits":{"cpu":"500m","memory":"768Mi"},"requests":{"cpu":"100m","memory":"256Mi"}}` | Resource requests and limits for the bundled MongoDB instance's container. |
+| aodbApi.mongo.storage.size | string | `"1Gi"` | Size of the PersistentVolumeClaim provisioned for the bundled MongoDB instance. The full dump is ~65MB decompressed (see app/dump_loader.py) - this leaves headroom for indexes (name/category/ql/profession/trigram - see app/store.py) and WiredTiger overhead on top of the raw data size. |
+| aodbApi.mongoUrl | string | `""` | Connection URL for the MongoDB instance this app uses as its primary datastore (the loaded, indexed item/nano catalog - see the app's own README) - e.g. mongodb://my-mongo:27017/aodb, or mongodb://user:pass@my-mongo:27017/aodb if auth is enabled. Takes precedence over aodbApi.mongo.enabled if both are set. Leave unset (and set aodbApi.mongo.enabled=true) to use the chart's own bundled MongoDB instead of pointing at an externally-provisioned one. Required one way or the other - the app has no database to fall back to. |
 | aodbApi.podAnnotations | object | `{}` | Extra annotations to add to the pod template (e.g. for a service mesh sidecar injector or a config-reload trigger). |
 | aodbApi.podLabels | object | `{}` | Extra labels to add to the pod template, in addition to the chart-managed `app` label. |
 | aodbApi.redis.enabled | bool | `false` | Deploy a bundled Redis instance (via the OT-CONTAINER-KIT/redis-operator `Redis` custom resource, standalone mode only) alongside this app, instead of requiring an externally-provisioned aodbApi.redisUrl. Requires the redis-operator CRDs to already be installed in the target cluster. Off by default: enabling this for an existing installation that already points aodbApi.redisUrl at its own Redis would otherwise start deploying an unwanted, unused second Redis instance. |
@@ -81,7 +96,7 @@ a ConfigMap and mounts it into the pod for you - no image rebuild needed.
 | aodbApi.redis.serviceMonitor.enabled | bool | `false` | Create a Prometheus Operator ServiceMonitor for the bundled Redis instance's exporter metrics. Separate toggle from aodbApi.redis.enabled since it depends on the prometheus-operator CRDs being installed, which isn't guaranteed just because Redis itself is being deployed. |
 | aodbApi.redis.serviceMonitor.interval | string | `"30s"` | Scrape interval for the Redis metrics ServiceMonitor. |
 | aodbApi.redis.storage.size | string | `"1Gi"` | Size of the PersistentVolumeClaim provisioned for the bundled Redis instance. |
-| aodbApi.redisUrl | string | `""` | Connection URL for the Redis instance this app uses to store the loaded item dump and back its search index (see the app's own README) - e.g. redis://my-redis:6379/0, or redis://:password@my-redis:6379/0 if auth is enabled. Takes precedence over aodbApi.redis.enabled if both are set. Leave unset (and set aodbApi.redis.enabled=true) to use the chart's own bundled Redis instead of pointing at an externally-provisioned one. |
+| aodbApi.redisUrl | string | `""` | Connection URL for the Redis instance this app uses as an optional cache-aside layer in front of its more expensive search queries (see the app's own README) - e.g. redis://my-redis:6379/0. Takes precedence over aodbApi.redis.enabled if both are set. Leave both unset to run with no cache at all - Mongo is the source of truth either way, so a missing/unreachable Redis only costs some query latency, never correctness (see app/store.py's _cached_json). |
 | aodbApi.replicaCount | int | `1` | Number of pod replicas. Safe to run more than one - each replica independently loads its own in-memory copy of the dump from dumpUrl on startup, no shared state between them. Ignored when aodbApi.keda.enabled - KEDA manages the replica count instead. |
 | aodbApi.resources | object | `{"limits":{"cpu":"250m","memory":"512Mi"},"requests":{"cpu":"50m","memory":"128Mi"}}` | Resource requests and limits for the app container. The 256Mi memory limit was too tight for the dump-load step and OOMKilled pods mid-load in a real cluster (confirmed reproducible, not a one-off) - 512Mi gives real headroom above the ~65MB peak RSS the dump parser alone was measured at (app/dump_loader.py), which doesn't account for the rest of the process (interpreter, FastAPI/uvicorn, the Redis client, the raw HTTP response buffer) or growth in the dump/item schema over time. |
 | aodbApi.service.port | int | `80` | Port the Service listens on and forwards to the container's 8000. |
@@ -93,7 +108,7 @@ a ConfigMap and mounts it into the pod for you - no image rebuild needed.
 ```
 helm lint chart --strict \
   --set aodbApi.dumpUrl=https://example.invalid/dump.xml.zip \
-  --set aodbApi.redisUrl=redis://example-redis:6379/0
+  --set aodbApi.mongoUrl=mongodb://example-mongo:27017/aodb
 helm unittest chart
 ```
 

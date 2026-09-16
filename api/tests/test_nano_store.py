@@ -1,4 +1,4 @@
-from app.store import Effect, NanoStore, Requirement, _effects_from_json, _requirements_from_json, make_nano
+from app.store import NanoStore, Requirement, make_nano
 
 
 async def _seed(store: NanoStore) -> None:
@@ -35,7 +35,7 @@ async def _seed(store: NanoStore) -> None:
     )
 
 
-async def test_search_matches_substring_case_insensitively(fake_redis):
+async def test_search_matches_substring_case_insensitively(fake_mongo, no_cache):
     store = NanoStore()
     await _seed(store)
 
@@ -45,7 +45,7 @@ async def test_search_matches_substring_case_insensitively(fake_redis):
     assert len(await store.search(query="xyz", ql=0, school="", profession=None, limit=50)) == 0
 
 
-async def test_search_filters_by_school(fake_redis):
+async def test_search_filters_by_school(fake_mongo, no_cache):
     store = NanoStore()
     await _seed(store)
 
@@ -53,7 +53,7 @@ async def test_search_filters_by_school(fake_redis):
     assert {n.id for n in results} == {1, 3}
 
 
-async def test_search_filters_by_profession(fake_redis):
+async def test_search_filters_by_profession(fake_mongo, no_cache):
     store = NanoStore()
     await _seed(store)
 
@@ -61,7 +61,7 @@ async def test_search_filters_by_profession(fake_redis):
     assert {n.id for n in results} == {2, 3}
 
 
-async def test_search_combines_filters(fake_redis):
+async def test_search_combines_filters(fake_mongo, no_cache):
     store = NanoStore()
     await _seed(store)
 
@@ -69,7 +69,7 @@ async def test_search_combines_filters(fake_redis):
     assert [n.id for n in results] == [3]
 
 
-async def test_count_reflects_total_matches_not_limit(fake_redis):
+async def test_count_reflects_total_matches_not_limit(fake_mongo, no_cache):
     store = NanoStore()
     await _seed(store)
 
@@ -77,7 +77,7 @@ async def test_count_reflects_total_matches_not_limit(fake_redis):
     assert len(await store.search(query="", ql=142, school="", profession=None, limit=1)) == 1
 
 
-async def test_get_returns_nano_by_id_or_none(fake_redis):
+async def test_get_returns_nano_by_id_or_none(fake_mongo, no_cache):
     store = NanoStore()
     await _seed(store)
 
@@ -86,7 +86,7 @@ async def test_get_returns_nano_by_id_or_none(fake_redis):
     assert await store.get(999) is None
 
 
-async def test_list_ids_returns_every_id(fake_redis):
+async def test_list_ids_returns_every_id(fake_mongo, no_cache):
     store = NanoStore()
     await _seed(store)
 
@@ -94,48 +94,21 @@ async def test_list_ids_returns_every_id(fake_redis):
     assert set(ids) == {1, 2, 3}
 
 
-async def test_school_counts_returns_per_school_totals(fake_redis):
+async def test_school_counts_returns_per_school_totals(fake_mongo, no_cache):
     store = NanoStore()
     await _seed(store)
 
     assert await store.school_counts() == {"Combat": 2, "Healing": 1}
 
 
-async def test_school_counts_ignores_nanos_without_a_school(fake_redis):
+async def test_school_counts_ignores_nanos_without_a_school(fake_mongo, no_cache):
     store = NanoStore()
     await store.load([make_nano(id=1, name="No School Nano", ql=1)])
 
     assert await store.school_counts() == {}
 
 
-def test_requirements_from_json_handles_missing_field():
-    # A hash written before "requirements" was ever populated (or any
-    # other malformed/partial data) has no such key at all - h.get()
-    # returns None, not "[]" - distinct from the empty-list case.
-    assert _requirements_from_json(None) == ()
-    assert _requirements_from_json("") == ()
-
-
-def test_requirements_from_json_round_trips_real_requirements():
-    raw = '[{"hook": "To Use", "attribute": "Profession", "operator": "exactly", "value": "5"}]'
-    assert _requirements_from_json(raw) == (
-        Requirement(hook="To Use", attribute="Profession", operator="exactly", value="5"),
-    )
-
-
-def test_effects_from_json_handles_missing_field():
-    assert _effects_from_json(None) == ()
-    assert _effects_from_json("") == ()
-
-
-def test_effects_from_json_round_trips_real_effects():
-    raw = '[{"hook": "Wear", "target": "Self", "action": "Modify", "attribute": "Strength", "value": "10"}]'
-    assert _effects_from_json(raw) == (
-        Effect(hook="Wear", target="Self", action="Modify", attribute="Strength", value="10"),
-    )
-
-
-async def test_load_does_not_flush_existing_data(fake_redis):
+async def test_load_does_not_flush_existing_data(fake_mongo, no_cache):
     store = NanoStore()
     await store.load([make_nano(id=1, name="Old Nano", crystal_id=1, description="x")])
     await store.load([make_nano(id=2, name="New Nano", crystal_id=2, description="y")])
@@ -144,7 +117,7 @@ async def test_load_does_not_flush_existing_data(fake_redis):
     assert await store.get(2) is not None
 
 
-async def test_load_skips_ids_that_already_exist(fake_redis):
+async def test_load_skips_ids_that_already_exist(fake_mongo, no_cache):
     store = NanoStore()
     await store.load([make_nano(id=1, name="Original Name", crystal_id=1, description="x", ql=100)])
     await store.load([make_nano(id=1, name="Changed Name", crystal_id=1, description="x", ql=200)])
@@ -154,11 +127,11 @@ async def test_load_skips_ids_that_already_exist(fake_redis):
     assert nano.ql == 100
 
 
-async def test_load_school_and_profession_counts_do_not_double_count_on_reload(fake_redis):
-    # school_counts used to be HINCRBY'd per item on every load() call -
-    # once load() stopped flushing first, that would keep adding onto
-    # itself forever on repeated loads of the same nano. Both counts are
-    # now recomputed from the full incoming list and overwritten instead.
+async def test_load_school_and_profession_counts_do_not_double_count_on_reload(fake_mongo, no_cache):
+    # school_counts/profession_counts are recomputed from the full incoming
+    # list and overwritten (not incremented) on every load() call - a
+    # counter that kept adding onto itself across repeated loads of the
+    # same nano would double-count here.
     store = NanoStore()
     nano = make_nano(id=1, name="Death's Gaze", crystal_id=1, description="x", school="Combat", profession=5)
     await store.load([nano])
@@ -191,7 +164,7 @@ async def _seed_with_generic(store: NanoStore) -> None:
     )
 
 
-async def test_search_filters_by_profession_zero_returns_generic_nanos(fake_redis):
+async def test_search_filters_by_profession_zero_returns_generic_nanos(fake_mongo, no_cache):
     store = NanoStore()
     await _seed_with_generic(store)
 
@@ -199,7 +172,7 @@ async def test_search_filters_by_profession_zero_returns_generic_nanos(fake_redi
     assert {n.id for n in results} == {2}
 
 
-async def test_count_with_profession_matches_search(fake_redis):
+async def test_count_with_profession_matches_search(fake_mongo, no_cache):
     store = NanoStore()
     await _seed_with_generic(store)
 
@@ -208,14 +181,14 @@ async def test_count_with_profession_matches_search(fake_redis):
     assert await store.count(query="", ql=0, school="", profession=999) == 0
 
 
-async def test_profession_counts_includes_generic_bucket(fake_redis):
+async def test_profession_counts_includes_generic_bucket(fake_mongo, no_cache):
     store = NanoStore()
     await _seed_with_generic(store)
 
     assert await store.profession_counts() == {5: 1, 0: 1}
 
 
-async def test_load_profession_index_does_not_duplicate_on_reload(fake_redis):
+async def test_load_profession_counts_do_not_duplicate_on_reload(fake_mongo, no_cache):
     store = NanoStore()
     await _seed_with_generic(store)
     await _seed_with_generic(store)
@@ -223,34 +196,3 @@ async def test_load_profession_index_does_not_duplicate_on_reload(fake_redis):
     assert await store.profession_counts() == {5: 1, 0: 1}
     results = await store.search(query="", ql=0, school="", profession=0, limit=50)
     assert [n.id for n in results] == [2]
-
-
-async def test_load_backfills_profession_index_for_data_from_before_the_index_existed(fake_redis):
-    # Simulates data already sitting in Redis from before the per-profession
-    # index existed: delete the index key a first load() would have written,
-    # then load the same data again (as a real deploy's next dump reload
-    # would) and confirm it gets backfilled even though every id is already
-    # present and would otherwise be skipped as "existing".
-    store = NanoStore()
-    await _seed_with_generic(store)
-    await fake_redis.delete(store._by_name_profession_key(5))
-    await fake_redis.delete(store._by_name_profession_key(0))
-
-    await store.load(
-        [
-            make_nano(id=1, name="Death's Gaze", crystal_id=1, description="x", profession=5),
-            make_nano(id=2, name="Generic Heal", crystal_id=2, description="x"),
-            make_nano(
-                id=3,
-                name="Visual Only Nano",
-                crystal_id=3,
-                description="x",
-                requirements=(
-                    Requirement(hook="To Use", attribute="Visual profession", operator="exactly", value="5"),
-                ),
-            ),
-        ]
-    )
-
-    assert {n.id for n in await store.search(query="", ql=0, school="", profession=5, limit=50)} == {1}
-    assert {n.id for n in await store.search(query="", ql=0, school="", profession=0, limit=50)} == {2}

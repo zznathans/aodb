@@ -1,0 +1,53 @@
+{{- if .Values.aodbApi.mongo.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "aodb.mongoName" . }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  serviceName: {{ include "aodb.mongoName" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "aodb.mongoName" . }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "aodb.mongoName" . }}
+    spec:
+      containers:
+        - name: mongo
+          image: {{ .Values.aodbApi.mongo.image.repository }}:{{ .Values.aodbApi.mongo.image.tag }}
+          imagePullPolicy: {{ .Values.aodbApi.mongo.image.pullPolicy }}
+          ports:
+            - containerPort: 27017
+          volumeMounts:
+            - name: data
+              mountPath: /data/db
+          resources:
+            {{- toYaml .Values.aodbApi.mongo.resources | nindent 12 }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.aodbApi.mongo.storage.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aodb.mongoName" . }}
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  selector:
+    app: {{ include "aodb.mongoName" . }}
+  ports:
+    - port: 27017
+      targetPort: 27017
+{{- end }}

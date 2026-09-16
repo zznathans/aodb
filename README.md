@@ -9,7 +9,7 @@
 | **License** | [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE) |
 
 A FastAPI service that parses the official Anarchy Online item dump into
-Redis and serves it back out as a JSON API, a legacy AOML-compatible
+MongoDB and serves it back out as a JSON API, a legacy AOML-compatible
 endpoint (raw chat-markup responses for game-chat clients that expect
 that format), and a plain server-rendered browse/search UI - no build
 step, works with JavaScript disabled. Ships with a Helm chart for
@@ -40,9 +40,10 @@ deploying it.
   they never collide with these paths.
 - **Search-engine discovery** - `/robots.txt` and a chunked `/sitemap.xml`
   covering the full catalog.
-- **Redis-backed storage** shared across every pod, loaded once behind a
+- **MongoDB-backed storage** shared across every pod, loaded once behind a
   distributed lock so a multi-pod rollout doesn't stampede the source dump
-  on startup.
+  on startup, with an optional Redis cache-aside layer in front of the
+  more expensive search queries.
 - **Hardened container image** - digest-pinned base image, unused OS
   packages stripped, every Python dependency hash-verified at install
   time.

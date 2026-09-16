@@ -1,0 +1,67 @@
+suite: mongo
+templates:
+  - mongo.yaml
+tests:
+  - it: renders nothing when mongo.enabled is unset (default)
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.mongoUrl: mongodb://example-mongo:27017/aodb
+    asserts:
+      - hasDocuments:
+          count: 0
+
+  - it: renders a StatefulSet and Service when mongo.enabled is true
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.mongo.enabled: true
+    asserts:
+      - hasDocuments:
+          count: 2
+      - documentIndex: 0
+        isKind:
+          of: StatefulSet
+      - documentIndex: 0
+        equal:
+          path: metadata.name
+          value: RELEASE-NAME-mongo
+      - documentIndex: 1
+        isKind:
+          of: Service
+      - documentIndex: 1
+        equal:
+          path: metadata.name
+          value: RELEASE-NAME-mongo
+
+  - it: passes image, resources, and storage size through from values
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.mongo.enabled: true
+      aodbApi.mongo.image.repository: my-registry/mongo
+      aodbApi.mongo.image.tag: "7.0"
+      aodbApi.mongo.resources.limits.memory: 1Gi
+      aodbApi.mongo.storage.size: 5Gi
+    asserts:
+      - documentIndex: 0
+        equal:
+          path: spec.template.spec.containers[0].image
+          value: my-registry/mongo:7.0
+      - documentIndex: 0
+        equal:
+          path: spec.template.spec.containers[0].resources.limits.memory
+          value: 1Gi
+      - documentIndex: 0
+        equal:
+          path: spec.volumeClaimTemplates[0].spec.resources.requests.storage
+          value: 5Gi
+
+  - it: mounts persistent storage at /data/db
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.mongo.enabled: true
+    asserts:
+      - documentIndex: 0
+        equal:
+          path: spec.template.spec.containers[0].volumeMounts[0]
+          value:
+            name: data
+            mountPath: /data/db

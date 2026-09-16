@@ -1,6 +1,7 @@
 import asyncio
 import io
 import zipfile
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -8,7 +9,7 @@ from api_analytics.fastapi import Analytics, Config
 from starlette.requests import Request
 from starlette.responses import Response
 
-from app.main import _LOAD_LOCK_KEY, _LOAD_READY_KEY, _FilteredAnalytics, _load_items
+from app.main import _LOAD_DOC_ID, _FilteredAnalytics, _load_items
 from app.store import nano_store, store
 
 XML_TEXT = """<?xml version="1.0"?>
@@ -38,36 +39,43 @@ def _write_dump_zip(path) -> str:
     return str(path)
 
 
-async def test_load_items_noop_when_no_dump_source_configured(fake_redis):
+async def _load_doc(fake_mongo):
+    return await fake_mongo["load_state"].find_one({"_id": _LOAD_DOC_ID})
+
+
+async def test_load_items_noop_when_no_dump_source_configured(fake_redis, fake_mongo):
     await _load_items()
 
     assert await store.count("", 0) == 0
-    assert await fake_redis.get(_LOAD_LOCK_KEY) is None
-    assert await fake_redis.get(_LOAD_READY_KEY) is None
+    assert await _load_doc(fake_mongo) is None
 
 
-async def test_load_items_skips_when_already_loaded(fake_redis, monkeypatch, tmp_path):
+async def test_load_items_skips_when_already_loaded(fake_redis, fake_mongo, monkeypatch, tmp_path):
     dump_path = _write_dump_zip(tmp_path / "dump.zip")
     monkeypatch.setenv("DUMP_PATH", dump_path)
-    await fake_redis.set(_LOAD_READY_KEY, dump_path)
+    await fake_mongo["load_state"].update_one(
+        {"_id": _LOAD_DOC_ID}, {"$set": {"ready_version": dump_path}}, upsert=True
+    )
 
     await _load_items()
 
-    # Ready key already matched the version, so load() was never called -
-    # store stays empty even though a valid dump was configured.
+    # Ready version already matched, so load() was never called - store stays
+    # empty even though a valid dump was configured.
     assert await store.count("", 0) == 0
-    assert await fake_redis.get(_LOAD_LOCK_KEY) is None
+    assert "locked_until" not in await _load_doc(fake_mongo)
 
 
-async def test_load_items_waits_for_other_pod_and_succeeds(fake_redis, monkeypatch, tmp_path):
+async def test_load_items_waits_for_other_pod_and_succeeds(fake_redis, fake_mongo, monkeypatch, tmp_path):
     dump_path = _write_dump_zip(tmp_path / "dump.zip")
     monkeypatch.setenv("DUMP_PATH", dump_path)
+    load_state = fake_mongo["load_state"]
     # Simulate another pod already holding the lock.
-    await fake_redis.set(_LOAD_LOCK_KEY, "1")
+    far_future = datetime.now(timezone.utc) + timedelta(seconds=300)
+    await load_state.update_one({"_id": _LOAD_DOC_ID}, {"$set": {"locked_until": far_future}}, upsert=True)
 
     async def set_ready_shortly_after():
         await asyncio.sleep(0.6)
-        await fake_redis.set(_LOAD_READY_KEY, dump_path)
+        await load_state.update_one({"_id": _LOAD_DOC_ID}, {"$set": {"ready_version": dump_path}})
 
     setter = asyncio.create_task(set_ready_shortly_after())
     await _load_items()
@@ -77,42 +85,65 @@ async def test_load_items_waits_for_other_pod_and_succeeds(fake_redis, monkeypat
     assert await store.count("", 0) == 0
 
 
-async def test_load_items_times_out_waiting_for_other_pod(fake_redis, monkeypatch, tmp_path):
+async def test_load_items_times_out_waiting_for_other_pod(fake_redis, fake_mongo, monkeypatch, tmp_path):
     dump_path = _write_dump_zip(tmp_path / "dump.zip")
     monkeypatch.setenv("DUMP_PATH", dump_path)
     monkeypatch.setattr("app.main._LOAD_WAIT_TIMEOUT_SECONDS", 0.5)
-    await fake_redis.set(_LOAD_LOCK_KEY, "1")  # never released, ready key never set
+    far_future = datetime.now(timezone.utc) + timedelta(seconds=300)
+    # Never released, ready version never set.
+    await fake_mongo["load_state"].update_one(
+        {"_id": _LOAD_DOC_ID}, {"$set": {"locked_until": far_future}}, upsert=True
+    )
 
     await _load_items()  # must return (not hang) once the timeout elapses
 
     assert await store.count("", 0) == 0
 
 
-async def test_load_items_race_double_check_returns_without_reloading(fake_redis, monkeypatch, tmp_path):
-    """Covers the "someone else finished between our GET and our SET NX"
-    branch: the ready key becomes set in between the two checks."""
+async def test_load_items_race_double_check_returns_without_reloading(fake_redis, fake_mongo, monkeypatch, tmp_path):
+    """Covers the "someone else finished between our initial ready-check and
+    our own lock-acquire CAS" branch: the ready version becomes set (and the
+    lock released) by another pod in between the two."""
     dump_path = _write_dump_zip(tmp_path / "dump.zip")
     monkeypatch.setenv("DUMP_PATH", dump_path)
 
-    real_get = fake_redis.get
+    # db["load_state"] returns a new collection proxy on every access
+    # (verified against mongomock-motor) - _load_items() calls it once and
+    # reuses that reference throughout, so patching find_one on a
+    # separately-obtained collection instance (like fake_mongo["load_state"]
+    # directly) would silently patch the wrong object. Pinning get_mongo()
+    # to always hand back this one instance is what makes the patch below
+    # actually visible to the code under test.
+    real_load_state = fake_mongo["load_state"]
+
+    class _FixedDB:
+        def __getitem__(self, _name):
+            return real_load_state
+
+    monkeypatch.setattr("app.main.get_mongo", lambda: _FixedDB())
+
+    real_find_one = real_load_state.find_one
     call_count = {"n": 0}
 
-    async def counting_get(key):
-        if key == _LOAD_READY_KEY:
-            call_count["n"] += 1
-            if call_count["n"] >= 2:
-                return dump_path
-        return await real_get(key)
+    async def counting_find_one(*args, **kwargs):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            return None  # our initial ready-check: not ready yet
+        return await real_find_one(*args, **kwargs)
 
-    monkeypatch.setattr(fake_redis, "get", counting_get)
+    monkeypatch.setattr(real_load_state, "find_one", counting_find_one)
+    # The other pod finishes its load (setting ready_version, releasing its
+    # lock) after our initial check but before our own CAS runs.
+    await real_load_state.update_one({"_id": _LOAD_DOC_ID}, {"$set": {"ready_version": dump_path}}, upsert=True)
 
     await _load_items()
 
+    assert call_count["n"] >= 1  # sanity: the patched find_one was actually reached
     assert await store.count("", 0) == 0
-    assert await real_get(_LOAD_LOCK_KEY) is None  # released in the finally block
+    assert "locked_until" not in await real_find_one({"_id": _LOAD_DOC_ID})
 
 
-async def test_load_items_happy_path_loads_from_dump_path(fake_redis, monkeypatch, tmp_path):
+async def test_load_items_happy_path_loads_from_dump_path(fake_redis, fake_mongo, monkeypatch, tmp_path):
     dump_path = _write_dump_zip(tmp_path / "dump.zip")
     monkeypatch.setenv("DUMP_PATH", dump_path)
 
@@ -120,11 +151,12 @@ async def test_load_items_happy_path_loads_from_dump_path(fake_redis, monkeypatc
 
     assert await store.count("", 0) == 2
     assert await nano_store.count("", 0, "", None) == 1
-    assert await fake_redis.get(_LOAD_READY_KEY) == dump_path
-    assert await fake_redis.get(_LOAD_LOCK_KEY) is None
+    doc = await _load_doc(fake_mongo)
+    assert doc["ready_version"] == dump_path
+    assert "locked_until" not in doc
 
 
-async def test_load_items_happy_path_loads_from_dump_url(fake_redis, monkeypatch):
+async def test_load_items_happy_path_loads_from_dump_url(fake_redis, fake_mongo, monkeypatch):
     dump_url = "https://example.invalid/171003.xml.zip"
     monkeypatch.setenv("DUMP_URL", dump_url)
 
@@ -140,10 +172,10 @@ async def test_load_items_happy_path_loads_from_dump_url(fake_redis, monkeypatch
 
     assert await store.count("", 0) == 2
     assert await nano_store.count("", 0, "", None) == 1
-    assert await fake_redis.get(_LOAD_READY_KEY) == dump_url
+    assert (await _load_doc(fake_mongo))["ready_version"] == dump_url
 
 
-async def test_load_items_releases_lock_on_exception(fake_redis, monkeypatch, tmp_path):
+async def test_load_items_releases_lock_on_exception(fake_redis, fake_mongo, monkeypatch, tmp_path):
     dump_path = _write_dump_zip(tmp_path / "dump.zip")
     monkeypatch.setenv("DUMP_PATH", dump_path)
 
@@ -156,8 +188,9 @@ async def test_load_items_releases_lock_on_exception(fake_redis, monkeypatch, tm
         await _load_items()
 
     # The lock must still be released even though loading blew up.
-    assert await fake_redis.get(_LOAD_LOCK_KEY) is None
-    assert await fake_redis.get(_LOAD_READY_KEY) is None
+    doc = await _load_doc(fake_mongo)
+    assert "locked_until" not in doc
+    assert "ready_version" not in doc
 
 
 def _make_request(path: str) -> Request:

@@ -34,28 +34,30 @@ spec:
     spec:
       serviceAccountName: {{ .Release.Name }}-serviceaccount
       # This app never calls the Kubernetes API - it's a stateless
-      # Redis-backed HTTP service - so the default-mounted SA token would
+      # Mongo-backed HTTP service - so the default-mounted SA token would
       # just be unused attack surface.
       automountServiceAccountToken: false
-      {{- if and .Values.aodbApi.redis.enabled (not .Values.aodbApi.redisUrl) }}
+      {{- if and .Values.aodbApi.mongo.enabled (not .Values.aodbApi.mongoUrl) }}
       initContainers:
-        - name: wait-for-redis
-          # The app itself has no connection retry (api/app/redis_client.py) -
-          # a lifespan startup Redis.get() against an unreachable Redis raises
-          # and crashes the process rather than retrying. ArgoCD's sync-wave
-          # ordering alone doesn't guarantee this: it has no health.lua for
-          # the custom redis.redis.opstreelabs.in/Redis CRD, so it likely
-          # marks that resource Healthy as soon as it's applied, not once the
-          # underlying Redis pod is actually Ready. This waits on the same
-          # host the app itself connects to (aodb.redisUrl in _helpers.tpl).
+        - name: wait-for-mongo
+          # The app itself has no connection retry (api/app/mongo_client.py) -
+          # a lifespan startup _load_items() against an unreachable Mongo
+          # raises and crashes the process rather than retrying. ArgoCD's
+          # sync-wave ordering alone doesn't guarantee the bundled Mongo
+          # StatefulSet's pod is actually Ready by the time this Deployment
+          # starts, so this waits on the same host the app itself connects
+          # to (aodb.mongoUrl in _helpers.tpl). Redis (aodbApi.redis), by
+          # contrast, is only an optional cache the app already tolerates
+          # being unreachable at any point (see app/store.py's
+          # _cached_json) - no equivalent wait-for-redis is needed.
           image: busybox:1.36
           imagePullPolicy: Always
           command:
             - sh
             - -c
             - |
-              until nc -z -w2 {{ include "aodb.redisName" . }}.{{ .Release.Namespace }}.svc.cluster.local 6379; do
-                echo "waiting for redis..."
+              until nc -z -w2 {{ include "aodb.mongoName" . }}.{{ .Release.Namespace }}.svc.cluster.local 27017; do
+                echo "waiting for mongo..."
                 sleep 2
               done
           securityContext:
@@ -77,8 +79,13 @@ spec:
           env:
             - name: DUMP_URL
               value: {{ required "aodbApi.dumpUrl is required" .Values.aodbApi.dumpUrl | quote }}
+            - name: MONGO_URL
+              value: {{ include "aodb.mongoUrl" . | quote }}
+            {{- $redisUrl := include "aodb.redisUrl" . }}
+            {{- if $redisUrl }}
             - name: REDIS_URL
-              value: {{ include "aodb.redisUrl" . | quote }}
+              value: {{ $redisUrl | quote }}
+            {{- end }}
             {{- with .Values.aodbApi.extraEnv }}
             {{- toYaml . | nindent 12 }}
             {{- end }}
@@ -96,7 +103,7 @@ spec:
             capabilities:
               drop: ["ALL"]
             # Nothing in the app writes to the filesystem at runtime - the
-            # item dump loads straight into Redis over the network
+            # item dump loads straight into Mongo over the network
             # (app/dump_loader.py), never to local disk.
             readOnlyRootFilesystem: true
           resources:
@@ -128,23 +135,27 @@ spec:
             # connections):
             #   - waiting on another pod's load lock, capped at
             #     _LOAD_WAIT_TIMEOUT_SECONDS (120s, app/main.py) before
-            #     giving up and serving what's already in Redis - a
+            #     giving up and serving what's already in Mongo - a
             #     tighter liveness window than that kills the pod
             #     mid-wait and restarts it into the same wait, which can
             #     crash-loop indefinitely if the lock is slow to clear
-            #     (e.g. a Redis restart orphaning a held lock);
+            #     (e.g. a Mongo restart orphaning a held lock);
             #   - actually holding the lock and doing the load itself,
-            #     which has no such internal timeout/fallback - confirmed
-            #     live that this can comfortably exceed 135s against the
-            #     bundled Redis (chart/templates/redis.yaml) once the
+            #     which has no such internal timeout/fallback - previously
+            #     confirmed live that this can comfortably exceed 135s
+            #     against the bundled Redis this app used to be backed by
+            #     (now Mongo, chart/templates/mongo.yaml) once the
             #     name-substring trigram index (app/store.py) is being
-            #     populated: ~3.3M SADD calls for a full 122k-item/10.5k-
-            #     nano dump, measured at ~32s of Redis-side command time
-            #     for the SADD calls alone, on top of every HSET/ZADD.
+            #     populated across a full 122k-item/10.5k-nano dump. The
+            #     285s figure below predates the move to Mongo - re-verify
+            #     against real load timing once this runs against Mongo in
+            #     production, since insert_many + index creation has
+            #     different I/O characteristics than the old HSET/ZADD/SADD
+            #     pipeline.
             # 285s total below, comfortably under both: the 300s load
             # lock TTL (so a stuck load's own liveness kill doesn't race a
             # second pod already re-acquiring the same lock) and the
-            # loading pod's actual observed duration.
+            # loading pod's previously observed duration.
             initialDelaySeconds: 60
             periodSeconds: 15
             failureThreshold: 16
