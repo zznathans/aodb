@@ -467,6 +467,26 @@ def _effects_from_json(raw: str | None) -> tuple[Effect, ...]:
     return tuple(Effect(**e) for e in json.loads(raw))
 
 
+def _profession_bucket(nano: "NanoProgram") -> int | None:
+    """Classifies a nano into the profession filter bucket it belongs to -
+    the id it appears under for /nanos/professions/{slug} - or None if it
+    doesn't belong to exactly one. 0 is the "no profession assigned"
+    sentinel (the generic nanos every profession gets): nano.profession is
+    only ever set from a "Profession exactly <id>" requirement (see
+    app/dump_loader.py). The dump also carries a separate "Visual
+    profession" requirement (which formula/icon variant a profession gets)
+    on plenty of nanos that otherwise have no "Profession" requirement at
+    all - those aren't generic either, so both attribute names are
+    excluded here. Used both to filter a single nano (NanoStore.
+    _filtered_matches) and, in bulk, to build NanoStore._by_name_profession_key's
+    per-profession index and profession_counts at load time."""
+    if nano.profession is not None:
+        return nano.profession
+    if any("profession" in r.attribute.lower() for r in nano.requirements):
+        return None
+    return 0
+
+
 class NanoStore:
     def __init__(self, key_prefix: str = "nanos") -> None:
         self._prefix = key_prefix
@@ -485,6 +505,9 @@ class NanoStore:
 
     def _profession_counts_key(self) -> str:
         return f"{self._prefix}:profession_counts"
+
+    def _by_name_profession_key(self, profession: int) -> str:
+        return f"{self._prefix}:by_name:profession:{profession}"
 
     async def load(self, nanos: list[NanoProgram]) -> None:
         """Writes every nano that isn't already in Redis - never flushes
@@ -508,9 +531,12 @@ class NanoStore:
         # dump.
         profession_counts: dict[int, int] = {}
         school_counts: dict[str, int] = {}
+        buckets: dict[int, int] = {}
         for nano in nanos:
-            if nano.profession is not None:
-                profession_counts[nano.profession] = profession_counts.get(nano.profession, 0) + 1
+            bucket = _profession_bucket(nano)
+            if bucket is not None:
+                buckets[nano.id] = bucket
+                profession_counts[bucket] = profession_counts.get(bucket, 0) + 1
             if nano.school:
                 school_counts[nano.school] = school_counts.get(nano.school, 0) + 1
 
@@ -544,6 +570,22 @@ class NanoStore:
                 pipe.zadd(self._by_name_key(), {_member(nano.name_lower, nano.id): 0})
                 for trigram in _trigrams(nano.name_lower):
                     pipe.sadd(self._trigram_key(trigram), nano.id)
+            await pipe.execute()
+
+        # Populated from the full incoming list (like profession_counts/
+        # school_counts above), not gated by the new_nanos skip above - a
+        # nano already in Redis from before this index existed would
+        # otherwise never get backfilled into it, and this store never
+        # flushes so there's no other point where that would happen. ZADD
+        # is idempotent, so re-adding a nano already indexed here on every
+        # load is harmless.
+        for start in range(0, len(nanos), _BATCH_SIZE):
+            batch = nanos[start : start + _BATCH_SIZE]
+            pipe = client.pipeline(transaction=False)
+            for nano in batch:
+                bucket = buckets.get(nano.id)
+                if bucket is not None:
+                    pipe.zadd(self._by_name_profession_key(bucket), {_member(nano.name_lower, nano.id): 0})
             await pipe.execute()
 
         if profession_counts:
@@ -610,27 +652,12 @@ class NanoStore:
         profession=0 is a sentinel meaning "no profession assigned" (the
         generic nanos every profession gets) - 0 is never a real profession
         id (see app/professions.py's PROFESSION_NAMES), so it's free to
-        reuse rather than adding a separate parameter."""
+        reuse rather than adding a separate parameter. See _profession_bucket
+        for the classification rule itself."""
         q = query.lower()
         ids = await self._candidate_ids(q)
         nanos = await self._fetch(ids)
         school_needle = school.lower()
-
-        def _profession_matches(nano: NanoProgram) -> bool:
-            if profession is None:
-                return True
-            if profession == 0:
-                # nano.profession is only ever set from a "Profession
-                # exactly <id>" requirement (see app/dump_loader.py). The
-                # dump also carries a separate "Visual profession"
-                # requirement (which formula/icon variant a profession
-                # gets) on plenty of nanos that otherwise have no
-                # "Profession" requirement at all - those aren't generic
-                # either, so both attribute names are excluded here.
-                return nano.profession is None and not any(
-                    "profession" in r.attribute.lower() for r in nano.requirements
-                )
-            return nano.profession == profession
 
         matches = [
             nano
@@ -638,16 +665,35 @@ class NanoStore:
             if (not q or q in nano.name_lower)
             and (not ql or nano.ql == ql)
             and (not school_needle or (nano.school or "").lower() == school_needle)
-            and _profession_matches(nano)
+            and (profession is None or _profession_bucket(nano) == profession)
         ]
         matches.sort(key=lambda nano: nano.name)
         return matches
+
+    async def _profession_only_key(self, profession: int) -> str | None:
+        """Returns the pre-built per-profession index key for `profession`
+        if it's been populated (see load()), else None. Backs the count()/
+        search() fast path below - checked with EXISTS rather than trusted
+        unconditionally so a profession filter still works correctly (via
+        the _filtered_matches fallback) in the window before the first
+        load() after this index was introduced has run, since load() never
+        flushes and only backfills existing data on its next run (see
+        load()'s docstring)."""
+        client = get_redis()
+        key = self._by_name_profession_key(profession)
+        return key if await client.exists(key) else None
 
     async def count(self, query: str, ql: int, school: str, profession: int | None) -> int:
         if not query and not ql and not school and profession is None:
             client = get_redis()
             lo, hi = _lex_range("")
             return await client.zlexcount(self._by_name_key(), lo, hi)
+        if not query and not ql and not school and profession is not None:
+            key = await self._profession_only_key(profession)
+            if key is not None:
+                client = get_redis()
+                lo, hi = _lex_range("")
+                return await client.zlexcount(key, lo, hi)
         return len(await self._filtered_matches(query, ql, school, profession))
 
     async def search(
@@ -659,6 +705,14 @@ class NanoStore:
             members = await client.zrangebylex(self._by_name_key(), lo, hi, start=offset, num=limit)
             ids = [_member_id(m) for m in members]
             return await self._fetch(ids)
+        if not query and not ql and not school and profession is not None:
+            key = await self._profession_only_key(profession)
+            if key is not None:
+                client = get_redis()
+                lo, hi = _lex_range("")
+                members = await client.zrangebylex(key, lo, hi, start=offset, num=limit)
+                ids = [_member_id(m) for m in members]
+                return await self._fetch(ids)
 
         return (await self._filtered_matches(query, ql, school, profession))[offset : offset + limit]
 

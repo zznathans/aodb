@@ -166,3 +166,91 @@ async def test_load_school_and_profession_counts_do_not_double_count_on_reload(f
 
     assert await store.school_counts() == {"Combat": 1}
     assert await store.profession_counts() == {5: 1}
+
+
+async def _seed_with_generic(store: NanoStore) -> None:
+    await store.load(
+        [
+            make_nano(id=1, name="Death's Gaze", crystal_id=1, description="x", profession=5),
+            # No explicit profession and no profession-shaped requirement -
+            # this is the "General" bucket every profession gets.
+            make_nano(id=2, name="Generic Heal", crystal_id=2, description="x"),
+            # No explicit profession, but a "Visual profession" requirement
+            # - not generic either (see _profession_bucket), so it belongs
+            # to no profession bucket at all.
+            make_nano(
+                id=3,
+                name="Visual Only Nano",
+                crystal_id=3,
+                description="x",
+                requirements=(
+                    Requirement(hook="To Use", attribute="Visual profession", operator="exactly", value="5"),
+                ),
+            ),
+        ]
+    )
+
+
+async def test_search_filters_by_profession_zero_returns_generic_nanos(fake_redis):
+    store = NanoStore()
+    await _seed_with_generic(store)
+
+    results = await store.search(query="", ql=0, school="", profession=0, limit=50)
+    assert {n.id for n in results} == {2}
+
+
+async def test_count_with_profession_matches_search(fake_redis):
+    store = NanoStore()
+    await _seed_with_generic(store)
+
+    assert await store.count(query="", ql=0, school="", profession=5) == 1
+    assert await store.count(query="", ql=0, school="", profession=0) == 1
+    assert await store.count(query="", ql=0, school="", profession=999) == 0
+
+
+async def test_profession_counts_includes_generic_bucket(fake_redis):
+    store = NanoStore()
+    await _seed_with_generic(store)
+
+    assert await store.profession_counts() == {5: 1, 0: 1}
+
+
+async def test_load_profession_index_does_not_duplicate_on_reload(fake_redis):
+    store = NanoStore()
+    await _seed_with_generic(store)
+    await _seed_with_generic(store)
+
+    assert await store.profession_counts() == {5: 1, 0: 1}
+    results = await store.search(query="", ql=0, school="", profession=0, limit=50)
+    assert [n.id for n in results] == [2]
+
+
+async def test_load_backfills_profession_index_for_data_from_before_the_index_existed(fake_redis):
+    # Simulates data already sitting in Redis from before the per-profession
+    # index existed: delete the index key a first load() would have written,
+    # then load the same data again (as a real deploy's next dump reload
+    # would) and confirm it gets backfilled even though every id is already
+    # present and would otherwise be skipped as "existing".
+    store = NanoStore()
+    await _seed_with_generic(store)
+    await fake_redis.delete(store._by_name_profession_key(5))
+    await fake_redis.delete(store._by_name_profession_key(0))
+
+    await store.load(
+        [
+            make_nano(id=1, name="Death's Gaze", crystal_id=1, description="x", profession=5),
+            make_nano(id=2, name="Generic Heal", crystal_id=2, description="x"),
+            make_nano(
+                id=3,
+                name="Visual Only Nano",
+                crystal_id=3,
+                description="x",
+                requirements=(
+                    Requirement(hook="To Use", attribute="Visual profession", operator="exactly", value="5"),
+                ),
+            ),
+        ]
+    )
+
+    assert {n.id for n in await store.search(query="", ql=0, school="", profession=5, limit=50)} == {1}
+    assert {n.id for n in await store.search(query="", ql=0, school="", profession=0, limit=50)} == {2}

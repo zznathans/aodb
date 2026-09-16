@@ -326,12 +326,11 @@ async def _render_nanos(request: Request, q: str, profession: int | None, page: 
         for slug, id_ in sorted(PROFESSION_SLUGS.items(), key=lambda kv: PROFESSION_NAMES[kv[1]])
     ]
     # profession=0 is the "no profession assigned" sentinel (see
-    # NanoStore._filtered_matches) - the generic nanos every profession gets.
-    # Reuses count()'s own profession=0 handling rather than
-    # nano_total-minus-sum, since that undercounted nanos with a
-    # profession-shaped requirement that isn't an "exactly" operator.
-    general_count = await nano_store.count("", 0, "", 0)
-    professions.append({"id": 0, "slug": "general", "name": "General", "nano_count": general_count})
+    # NanoStore._profession_bucket) - the generic nanos every profession
+    # gets. profession_counts() already includes bucket 0 (computed the
+    # same way NanoStore.count()/search() classify it), so no separate
+    # query is needed here.
+    professions.append({"id": 0, "slug": "general", "name": "General", "nano_count": profession_counts.get(0, 0)})
     json_api_url = (
         "/api/nanos?" + _qs(q=q, profession=profession, limit=PAGE_SIZE, offset=offset) if has_query else None
     )
