@@ -88,8 +88,14 @@ The item dump (a zipped `<aodb><item aoid="..." .../></aodb>` XML file, e.g.
 `171003.xml.zip`) is parsed once and stored in MongoDB (`app/dump_loader.py`,
 `app/store.py`), shared by every pod rather than each pod holding its own
 in-memory copy. On startup, whichever pod acquires a short-lived Mongo-backed
-lock does the parse-and-load; the rest just wait for it to finish and then
-read straight from Mongo. Readiness is gated on this completing.
+lock parses the dump, then writes it via a series of small, named migrations
+(`_MIGRATIONS` in `app/main.py`: create each store's indexes, insert items,
+insert nanos, compute category/profession/school counts) instead of one
+all-or-nothing call - each migration is recorded in the `migrations`
+collection as it finishes, so a load that crashes partway through resumes
+from the next unfinished migration on retry rather than redoing everything.
+Every other pod just waits for the load to finish and then reads straight
+from Mongo. Readiness is gated on every migration completing.
 
 Name search (`q=`) is a substring match, not just a prefix - `q=smg` matches
 "Combat SMG". Backed by a trigram index (3-char sliding windows of each name,

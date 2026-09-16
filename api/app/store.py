@@ -291,7 +291,12 @@ class ItemStore:
             return {"ql": ql}
         return {}
 
-    async def _ensure_indexes(self) -> None:
+    async def ensure_indexes(self) -> None:
+        """Creates every index this store's queries rely on. create_index
+        is a no-op when an identical index already exists, so this is safe
+        to call on every load - including a retried/resumed one (see
+        app/main.py's migration runner) - without needing its own
+        completion tracking."""
         collection = self._collection()
         await collection.create_index("name_lower")
         await collection.create_index([("ql", 1), ("name_lower", 1)])
@@ -334,7 +339,7 @@ class ItemStore:
             damage_critical=doc.get("damage_critical"),
         )
 
-    async def load(self, items: list[Item]) -> None:
+    async def insert_items(self, items: list[Item]) -> None:
         """Writes every item that isn't already stored - never deletes/
         replaces first. A previous load that crashed or got OOMKilled
         partway through used to leave the store either empty (if a flush
@@ -343,14 +348,14 @@ class ItemStore:
         reads against an in-progress load. Skipping ids that already exist
         also makes a reload of the same or overlapping dump far cheaper -
         insert_many(ordered=False) does this for free via the unique _id
-        index, no pre-fetch/diff needed.
+        index, no pre-fetch/diff needed."""
+        await _insert_new(self._collection(), [self._item_to_doc(item) for item in items])
 
-        category_counts/subcategory_counts are still computed from the
-        full incoming list and written as a plain field overwrite (not
+    async def compute_counts(self, items: list[Item]) -> None:
+        """Aggregates category_counts/subcategory_counts from the full
+        incoming list and writes them as a plain field overwrite (not
         incremented), so they stay accurate to the current dump regardless
-        of which individual items were actually (re)written this run."""
-        await self._ensure_indexes()
-
+        of which individual items insert_items() actually (re)wrote."""
         category_counts: dict[str, int] = {}
         subcategory_counts: dict[str, dict[str, int]] = {}
         for item in items:
@@ -359,14 +364,23 @@ class ItemStore:
                 by_subcategory = subcategory_counts.setdefault(item.category, {})
                 by_subcategory[item.subcategory] = by_subcategory.get(item.subcategory, 0) + 1
 
-        await _insert_new(self._collection(), [self._item_to_doc(item) for item in items])
-
         if category_counts:
             await self._counts_collection().update_one({"_id": "category"}, {"$set": category_counts}, upsert=True)
         for category, by_subcategory in subcategory_counts.items():
             await self._counts_collection().update_one(
                 {"_id": f"subcategory:{category}"}, {"$set": by_subcategory}, upsert=True
             )
+
+    async def load(self, items: list[Item]) -> None:
+        """Convenience wrapper running every load step in sequence - used
+        by tests and anywhere else that just wants "load everything" in
+        one call. app/main.py's migration runner calls ensure_indexes()/
+        insert_items()/compute_counts() individually instead, so each is
+        tracked and skippable on its own (see app/main.py's module
+        docstring)."""
+        await self.ensure_indexes()
+        await self.insert_items(items)
+        await self.compute_counts(items)
 
     async def _substring_matches(self, query: str, ql: int, category: str, subcategory: str) -> list[Item]:
         if len(query) >= _TRIGRAM_MIN_LEN:
@@ -501,7 +515,8 @@ class NanoStore:
             filt["ql"] = ql
         return filt
 
-    async def _ensure_indexes(self) -> None:
+    async def ensure_indexes(self) -> None:
+        """See ItemStore.ensure_indexes - same "safe to re-run" reasoning."""
         collection = self._collection()
         await collection.create_index("name_lower")
         await collection.create_index([("ql", 1), ("name_lower", 1)])
@@ -548,35 +563,37 @@ class NanoStore:
             effects=tuple(Effect(**e) for e in doc.get("effects") or ()),
         )
 
-    async def load(self, nanos: list[NanoProgram]) -> None:
+    def _real_nanos(self, nanos: list[NanoProgram]) -> list[NanoProgram]:
+        """The dump includes NPC-only buffs/effects alongside real
+        player-castable nanos - every player nano is backed by a physical
+        nano crystal item (crystal_id), which NPC-only entries lack, so
+        that's used to drop them before they're ever indexed/stored.
+        Entries with no description are dropped too - these tend to be the
+        same kind of non-player junk (a real player nano's crystal always
+        carries flavor text). Applied independently by insert_nanos() and
+        compute_counts() (rather than filtered once by a caller) so each
+        stays correct on its own regardless of which one runs first - see
+        app/main.py's migration runner."""
+        return [nano for nano in nanos if nano.crystal_id is not None and nano.description]
+
+    async def insert_nanos(self, nanos: list[NanoProgram]) -> None:
         """Writes every nano that isn't already stored - never deletes/
-        replaces first, same reasoning as ItemStore.load()."""
-        await self._ensure_indexes()
+        replaces first, same reasoning as ItemStore.insert_items()."""
+        await _insert_new(self._collection(), [self._nano_to_doc(nano) for nano in self._real_nanos(nanos)])
 
-        # The dump includes NPC-only buffs/effects alongside real
-        # player-castable nanos - every player nano is backed by a physical
-        # nano crystal item (crystal_id), which NPC-only entries lack, so
-        # that's used to drop them before they're ever indexed/stored.
-        # Entries with no description are dropped too - these tend to be
-        # the same kind of non-player junk (a real player nano's crystal
-        # always carries flavor text).
-        nanos = [nano for nano in nanos if nano.crystal_id is not None and nano.description]
-
-        # Aggregated in Python from the full incoming list and written as a
-        # plain field overwrite below (not incremented) - since load()
-        # never deletes/replaces existing docs first, an incremental
-        # counter would keep adding onto whatever was already there across
-        # repeated loads instead of reflecting the current dump.
+    async def compute_counts(self, nanos: list[NanoProgram]) -> None:
+        """Aggregates profession_counts/school_counts from the full
+        incoming list and writes them as a plain field overwrite (not
+        incremented), so they stay accurate to the current dump regardless
+        of which individual nanos insert_nanos() actually (re)wrote."""
         profession_counts: dict[int, int] = {}
         school_counts: dict[str, int] = {}
-        for nano in nanos:
+        for nano in self._real_nanos(nanos):
             bucket = _profession_bucket(nano)
             if bucket is not None:
                 profession_counts[bucket] = profession_counts.get(bucket, 0) + 1
             if nano.school:
                 school_counts[nano.school] = school_counts.get(nano.school, 0) + 1
-
-        await _insert_new(self._collection(), [self._nano_to_doc(nano) for nano in nanos])
 
         if profession_counts:
             await self._counts_collection().update_one(
@@ -586,6 +603,13 @@ class NanoStore:
             )
         if school_counts:
             await self._counts_collection().update_one({"_id": "school"}, {"$set": school_counts}, upsert=True)
+
+    async def load(self, nanos: list[NanoProgram]) -> None:
+        """Convenience wrapper running every load step in sequence - see
+        ItemStore.load()."""
+        await self.ensure_indexes()
+        await self.insert_nanos(nanos)
+        await self.compute_counts(nanos)
 
     async def _filtered_matches(self, query: str, ql: int, school: str, profession: int | None) -> list[NanoProgram]:
         """Pulls name-substring candidates back (trigram-narrowed when
