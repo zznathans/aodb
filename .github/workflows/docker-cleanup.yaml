@@ -7,10 +7,16 @@ name: Docker Cleanup
 on:
   pull_request:
     types: [closed]
+  schedule:
+    # Safety-net sweep for pr-<number> images the per-PR job above missed
+    # (e.g. this workflow didn't exist yet when an old PR closed, or the
+    # cleanup step itself failed/was skipped). Weekly, per the action's own
+    # recommendation for staying fast on large repos.
+    - cron: '17 3 * * 1'
 
 jobs:
   cleanup:
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -21,4 +27,23 @@ jobs:
         with:
           package: ${{ github.event.repository.name }}
           tags: pr-${{ github.event.pull_request.number }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  cleanup-stale:
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      # Only targets pr-<number> tags left behind by the per-PR job, not
+      # any other tags (e.g. latest/release tags) this package may carry.
+      # older-than guards against sweeping a tag for a PR that's still
+      # open and simply older than a week.
+      - name: Delete stale PR images
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          package: ${{ github.event.repository.name }}
+          delete-tags: 'pr-*'
+          older-than: 7 days
           token: ${{ secrets.GITHUB_TOKEN }}
