@@ -1,5 +1,7 @@
 FROM python:3.15.0rc2-slim-trixie AS builder
 
+RUN  apk add build-base
+
 WORKDIR /app
 
 COPY requirements.txt .
