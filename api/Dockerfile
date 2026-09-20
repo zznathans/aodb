@@ -1,6 +1,6 @@
 FROM python:3.15.0rc2-slim-trixie AS builder
 
-RUN  apk add build-base
+RUN  apt-get update &&  apt-get install build-essential -y
 
 WORKDIR /app
 
