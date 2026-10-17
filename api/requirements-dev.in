@@ -4,5 +4,5 @@ pytest-asyncio==1.4.0
 pytest-cov==7.1.0
 httpx==0.28.1
 ruff==0.17.0
-fakeredis==2.38.0
+fakeredis==2.39.0
 mongomock-motor==0.0.36
