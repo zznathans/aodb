@@ -78,6 +78,26 @@ tests:
           path: spec.storage.volumeClaimTemplate.spec.resources.requests.storage
           value: 5Gi
 
+  - it: omits storageClassName by default so the cluster default StorageClass is used
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redis.enabled: true
+    asserts:
+      - documentIndex: 1
+        notExists:
+          path: spec.storage.volumeClaimTemplate.spec.storageClassName
+
+  - it: passes storageClassName through from values
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.redis.enabled: true
+      aodbApi.redis.storage.storageClassName: fast-ssd
+    asserts:
+      - documentIndex: 1
+        equal:
+          path: spec.storage.volumeClaimTemplate.spec.storageClassName
+          value: fast-ssd
+
   - it: does not render a ServiceMonitor when serviceMonitor.enabled is unset (default)
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip

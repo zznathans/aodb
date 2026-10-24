@@ -39,6 +39,9 @@ spec:
     volumeClaimTemplate:
       spec:
         accessModes: ["ReadWriteOnce"]
+        {{- with .Values.aodbApi.redis.storage.storageClassName }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
         resources:
           requests:
             storage: {{ .Values.aodbApi.redis.storage.size }}
