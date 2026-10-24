@@ -54,6 +54,26 @@ tests:
           path: spec.volumeClaimTemplates[0].spec.resources.requests.storage
           value: 5Gi
 
+  - it: omits storageClassName by default so the cluster default StorageClass is used
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.mongo.enabled: true
+    asserts:
+      - documentIndex: 0
+        notExists:
+          path: spec.volumeClaimTemplates[0].spec.storageClassName
+
+  - it: passes storageClassName through from values
+    set:
+      aodbApi.dumpUrl: https://example.invalid/171003.xml.zip
+      aodbApi.mongo.enabled: true
+      aodbApi.mongo.storage.storageClassName: fast-ssd
+    asserts:
+      - documentIndex: 0
+        equal:
+          path: spec.volumeClaimTemplates[0].spec.storageClassName
+          value: fast-ssd
+
   - it: mounts persistent storage at /data/db
     set:
       aodbApi.dumpUrl: https://example.invalid/171003.xml.zip

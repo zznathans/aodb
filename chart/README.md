@@ -60,7 +60,7 @@ a ConfigMap and mounts it into the pod for you - no image rebuild needed.
 | aodbApi.extraObjects | list | `[]` | Raw Kubernetes objects to render alongside chart-managed resources. |
 | aodbApi.imagePullSecrets | list | `[]` | List of image pull secret names to attach to the ServiceAccount. Leave empty if the registry is public. |
 | aodbApi.imageRepository | string | `"ghcr.io/zznathans/aodb"` | Container image registry and repository for the aodb-api image. |
-| aodbApi.imageTag | string | `"1.11.3"` | Image tag to deploy. |
+| aodbApi.imageTag | string | `"1.13.3"` | Image tag to deploy. |
 | aodbApi.ingress.annotations | object | `{}` | Extra annotations on the Ingress - e.g. cert-manager.io/cluster-issuer, to have cert-manager automatically issue the TLS certificate referenced by ingress.tls.secretName below. |
 | aodbApi.ingress.className | string | `""` | IngressClass to use (e.g. "traefik"). Empty uses the cluster's default IngressClass. |
 | aodbApi.ingress.enabled | bool | `false` | Create an Ingress routing to this app's Service. Off by default - see the chart README for why (the Service is meant to sit behind whatever externally-managed ingress/traffic routing your cluster already uses; this is an opt-in alternative for clusters that route via a Kubernetes Ingress controller instead). |
@@ -79,6 +79,7 @@ a ConfigMap and mounts it into the pod for you - no image rebuild needed.
 | aodbApi.mongo.image.tag | string | `"8.0"` | Container image tag for the bundled MongoDB instance. |
 | aodbApi.mongo.resources | object | `{"limits":{"cpu":"500m","memory":"768Mi"},"requests":{"cpu":"100m","memory":"256Mi"}}` | Resource requests and limits for the bundled MongoDB instance's container. |
 | aodbApi.mongo.storage.size | string | `"1Gi"` | Size of the PersistentVolumeClaim provisioned for the bundled MongoDB instance. The full dump is ~65MB decompressed (see app/dump_loader.py) - this leaves headroom for indexes (name/category/ql/profession/trigram - see app/store.py) and WiredTiger overhead on top of the raw data size. |
+| aodbApi.mongo.storage.storageClassName | string | `""` | StorageClass for the bundled MongoDB instance's PersistentVolumeClaim. Leave empty to use the cluster's default StorageClass. Note that a StatefulSet's volumeClaimTemplates are immutable - changing this on an existing installation requires deleting the StatefulSet (e.g. with --cascade=orphan) and its PVC before upgrading. |
 | aodbApi.mongoUrl | string | `""` | Connection URL for the MongoDB instance this app uses as its primary datastore (the loaded, indexed item/nano catalog - see the app's own README) - e.g. mongodb://my-mongo:27017/aodb, or mongodb://user:pass@my-mongo:27017/aodb if auth is enabled. Takes precedence over aodbApi.mongo.enabled if both are set. Leave unset (and set aodbApi.mongo.enabled=true) to use the chart's own bundled MongoDB instead of pointing at an externally-provisioned one. Required one way or the other - the app has no database to fall back to. |
 | aodbApi.podAnnotations | object | `{}` | Extra annotations to add to the pod template (e.g. for a service mesh sidecar injector or a config-reload trigger). |
 | aodbApi.podLabels | object | `{}` | Extra labels to add to the pod template, in addition to the chart-managed `app` label. |
