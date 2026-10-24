@@ -121,6 +121,11 @@ aodbApi:
     storage:
       # -- Size of the PersistentVolumeClaim provisioned for the bundled Redis instance.
       size: 1Gi
+      # -- StorageClass for the bundled Redis instance's PersistentVolumeClaim. Leave empty to
+      # use the cluster's default StorageClass. Note that the operator-managed StatefulSet's
+      # volumeClaimTemplates are immutable - changing this on an existing installation requires
+      # deleting the Redis instance and its PVC before upgrading.
+      storageClassName: ""
 
     serviceMonitor:
       # -- Create a Prometheus Operator ServiceMonitor for the bundled Redis instance's
