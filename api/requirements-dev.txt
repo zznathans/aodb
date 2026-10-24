@@ -19,12 +19,13 @@ anyio==4.14.2 \
     --hash=sha256:cfa139f3ed1a23ee8f88a145ddb5ac7605b8bbfd8592baacd7ce3d8bb4313c7f
     # via
     #   httpx
+    #   httpx2
     #   starlette
     #   watchfiles
 api-analytics[fastapi]==1.2.7 \
     --hash=sha256:e885aaf819b052fe2dc41f256f23e671f4696c7b23af6b3c5c3acdc7b81821ea \
     --hash=sha256:eaff6c5d20457dec7fb95c54a0c45bbc7e0d7fdabfb5300e0ffce61a49808755
-    # via -r requirements.in
+    # via -r api/requirements.in
 certifi==2026.7.22 \
     --hash=sha256:62f22742b58a1a33014a2b6b706588a8d7e2a88ae7bd1a6ebe8c992928483775 \
     --hash=sha256:741e2c3b351ddf169a738da9f2c048608ff7f2c5cc02f1ebc6b118bb090d5d55
@@ -355,12 +356,12 @@ email-validator==2.3.0 \
 fakeredis==2.39.0 \
     --hash=sha256:acd1450575259634db2942d5bae93e383aac32bb9968aab29fe7b0c2ab880bb8 \
     --hash=sha256:e89c3410f290330042638ff5cca3e22788fa267dcaf28a64b4f483e14577208d
-    # via -r requirements-dev.in
-fastapi[standard]==0.143.0 \
-    --hash=sha256:1acffe48206a80917cf7dac21992b5c44b25384e8902bf745c1fd9dabcf6c51f \
-    --hash=sha256:3e9395fd35276425b61b516a31fdd7c77fe2af83e41b4da22e30696fb1304c5d
+    # via -r api/requirements-dev.in
+fastapi[standard]==0.156.4 \
+    --hash=sha256:a09d29fdd6635e94ae00199bae331a04350e0e46ba4334d50809007cd3119db5 \
+    --hash=sha256:e7dd3889a6d6f0c2976a89d6fb34be92fb3ee77bb5f9d1a40e68e9af09c96968
     # via
-    #   -r requirements.in
+    #   -r api/requirements.in
     #   api-analytics
 fastapi-cli[standard]==0.0.32 \
     --hash=sha256:38024d2345275e1b37ce8848727a580d84901b570e96b3256d9d36a9a5039424 \
@@ -522,11 +523,16 @@ h11==0.16.0 \
     --hash=sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86
     # via
     #   httpcore
+    #   httpcore2
     #   uvicorn
 httpcore==1.0.9 \
     --hash=sha256:2d400746a40668fc9dec9810239072b40b4484b640a8c38fd654a024c7a1bf55 \
     --hash=sha256:6e34463af53fd2ab5d807f399a9b45ea31c3dfa2276f15a2c3f00afff6e176e8
     # via httpx
+httpcore2==2.16.0 \
+    --hash=sha256:5c4358319f2602d984ad93182c9fee5160f22e9da7babdda870a5e7c4e2dc34f \
+    --hash=sha256:c72cd0413563b17e1cd8354677dff887466f8ec2551679759e93126534428643
+    # via httpx2
 httptools==0.8.0 \
     --hash=sha256:0770728beb05094c809b98e814edff5fef69d26ad7d21185f2f6d5884a0ba683 \
     --hash=sha256:0ea897f0c729581ebf72131a438a7932d9b14efef72d75ada966700cac3caaeb \
@@ -583,9 +589,13 @@ httpx==0.28.1 \
     --hash=sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc \
     --hash=sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad
     # via
-    #   -r requirements-dev.in
+    #   -r api/requirements-dev.in
     #   fastapi
     #   fastapi-cloud-cli
+httpx2==2.16.0 \
+    --hash=sha256:0d54c98128e8f2ff7fbbde0fca8c359e5f032edeaaaac443cdb7f31f685bcd7f \
+    --hash=sha256:fd2c5d7909e8d86fe92d53020c310ca0e4e431b838c207c5754b9bbf0308d49a
+    # via fastapi
 idna==3.18 \
     --hash=sha256:7f952cbe720b688055e3f87de14f5c3e5fdaa8bc3928985c4077ca689de849a2 \
     --hash=sha256:ffb385a7e039654cef1ab9ef32c6fafe283c0c0467bba1d9029738ce4a14a848
@@ -593,6 +603,7 @@ idna==3.18 \
     #   anyio
     #   email-validator
     #   httpx
+    #   httpx2
     #   requests
 iniconfig==2.3.0 \
     --hash=sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730 \
@@ -602,7 +613,7 @@ jinja2==3.1.6 \
     --hash=sha256:0137fb05990d35f1275a587e9aee6d56da821fc83491a0fb838183be43f66d6d \
     --hash=sha256:85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67
     # via
-    #   -r requirements.in
+    #   -r api/requirements.in
     #   fastapi
 markdown-it-py==4.2.0 \
     --hash=sha256:04a21681d6fbb623de53f6f364d352309d4094dd4194040a10fd51833e418d49 \
@@ -710,12 +721,12 @@ mongomock==4.3.0 \
 mongomock-motor==0.0.36 \
     --hash=sha256:3cf62352ece5af2f02e04d2f252393f88b5fe0487997da00584020cee4b8efba \
     --hash=sha256:3ecb7949662b8986ff9c267fa0b1402b5b75a6afd57f03850cd6e13a067e3691
-    # via -r requirements-dev.in
+    # via -r api/requirements-dev.in
 motor==3.7.1 \
     --hash=sha256:27b4d46625c87928f331a6ca9d7c51c2f518ba0e270939d395bc1ddc89d64526 \
     --hash=sha256:8a63b9049e38eeeb56b4fdd57c3312a6d1f25d01db717fe7d82222393c410298
     # via
-    #   -r requirements.in
+    #   -r api/requirements.in
     #   mongomock-motor
 opentelemetry-api==1.45.0 \
     --hash=sha256:711ede81773c8025c2c03dac0450bc89f3d30aea6eabcc815c570d4e35a963f7 \
@@ -778,7 +789,7 @@ prometheus-client==0.26.0 \
 prometheus-fastapi-instrumentator==8.1.0 \
     --hash=sha256:b77f3043665e8d28e2bbd21017506195a43d9adf1d402d01bf95b494b7e560e1 \
     --hash=sha256:b9f40b2cff3f7891ca0610b3ae4fc6ec723fd326b04bb659819aaeb821a0fc7d
-    # via -r requirements.in
+    # via -r api/requirements.in
 protobuf==7.36.2 \
     --hash=sha256:497d0463ff3316681da6c0b9e8d06cb465d61abce00b613ab42226175644d1bb \
     --hash=sha256:89f23aa53c24553a2416fd4fd1ec06f74fa42b14b546d8883128813f775bbfd2 \
@@ -1012,17 +1023,17 @@ pytest==9.1.1 \
     --hash=sha256:1088fbde8f2b49d95a549a195707afa7a76a3ce9bcadc26b6d71f0ffda5fe313 \
     --hash=sha256:37a86b45efb9a47a61a36449063e8e18d0cab3161329fc099eb21783169c4f0c
     # via
-    #   -r requirements-dev.in
+    #   -r api/requirements-dev.in
     #   pytest-asyncio
     #   pytest-cov
 pytest-asyncio==1.4.0 \
     --hash=sha256:933ca923a23075a87fb7070c0ec272a6848489824d887c85c812670932835aa1 \
     --hash=sha256:c6c0d2259945122819f171a32ecea2c349ead889ee28176caaf492143424be42
-    # via -r requirements-dev.in
+    # via -r api/requirements-dev.in
 pytest-cov==7.1.0 \
     --hash=sha256:30674f2b5f6351aa09702a9c8c364f6a01c27aae0c1366ae8016160d1efc56b2 \
     --hash=sha256:a0461110b7865f9a271aa1b51e516c9a95de9d696734a2f71e3e78f46e1d4678
-    # via -r requirements-dev.in
+    # via -r api/requirements-dev.in
 python-dotenv==1.2.2 \
     --hash=sha256:1d8214789a24de455a8b8bd8ae6fe3c6b69a5e3d64aa8a8e5d68e694bbcb285a \
     --hash=sha256:2c371a91fbd7ba082c2c1dc1f8bf89ca22564a087c2c287cd9b662adde799cf3
@@ -1116,7 +1127,7 @@ redis==8.1.0 \
     --hash=sha256:6e1a19beef9225c83efd689c7e6b7da2d5215b1f42cd13b7fc3714d0a09c7b25 \
     --hash=sha256:a4fe1aac3d3b3cc791d4b3d5931c5a956045dc951ee74d1c913ee3ac4d2ee9fb
     # via
-    #   -r requirements.in
+    #   -r api/requirements.in
     #   fakeredis
 requests==2.34.2 \
     --hash=sha256:2a0d60c172f83ac6ab31e4554906c0f3b3588d37b5cb939b1c061f4907e278e0 \
@@ -1326,7 +1337,7 @@ ruff==0.17.0 \
     --hash=sha256:cbf7149e0927dc3295d5d64679a4765576eef71b00782b2ae969ef82274d6bb9 \
     --hash=sha256:d66de796b726c4801e05fa99a2a8d7a780e107be222486c304ab61765561e866 \
     --hash=sha256:db4f74c533403ab70fe4007873f6ae0c9f94a8b03158cf48d78788e47cdbe399
-    # via -r requirements-dev.in
+    # via -r api/requirements-dev.in
 sentinels==1.1.1 \
     --hash=sha256:3c2f64f754187c19e0a1a029b148b74cf58dd12ec27b4e19c0e5d6e22b5a9a86 \
     --hash=sha256:835d3b28f3b47f5284afa4bf2db6e00f2dc5f80f9923d4b7e7aeeeccf6146a11
@@ -1349,6 +1360,12 @@ starlette==1.6.0 \
     # via
     #   fastapi
     #   prometheus-fastapi-instrumentator
+truststore==0.10.5 \
+    --hash=sha256:30d36967ccaded5cbb38d602c433f53600036c79d502f4533a49b60a03bbefcd \
+    --hash=sha256:9aaaedaefaf06d8b206278cf8b5012bc897f485a874503501e12d776df78951c
+    # via
+    #   httpcore2
+    #   httpx2
 typer==0.27.1 \
     --hash=sha256:53150287edd11baeb4e4722c8e394fcdf8181c0ae89485cba8d25c778d5edd56 \
     --hash=sha256:a79bef8469a79c45498e7b814ecf8d603cc7644e9acbd9e19cac0334240b18df
@@ -1359,7 +1376,6 @@ typing-extensions==4.16.0 \
     --hash=sha256:481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8 \
     --hash=sha256:dc983d19a509c94dba722ee6abd33940f7c05a89e243c47e907eb4db6f1a43e5
     # via
-    #   anyio
     #   fastapi
     #   opentelemetry-api
     #   opentelemetry-exporter-otlp-proto-http
@@ -1368,9 +1384,7 @@ typing-extensions==4.16.0 \
     #   pydantic
     #   pydantic-core
     #   pydantic-extra-types
-    #   pytest-asyncio
     #   rich-toolkit
-    #   starlette
     #   typing-inspection
 typing-inspection==0.4.4 \
     --hash=sha256:547274fa6b0a561ccf549cc9524b999a578e737d015d8709d021f9d0d13bea47 \
