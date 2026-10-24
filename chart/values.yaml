@@ -44,6 +44,11 @@ aodbApi:
       # indexes (name/category/ql/profession/trigram - see app/store.py) and WiredTiger
       # overhead on top of the raw data size.
       size: 1Gi
+      # -- StorageClass for the bundled MongoDB instance's PersistentVolumeClaim. Leave empty to
+      # use the cluster's default StorageClass. Note that a StatefulSet's volumeClaimTemplates
+      # are immutable - changing this on an existing installation requires deleting the
+      # StatefulSet (e.g. with --cascade=orphan) and its PVC before upgrading.
+      storageClassName: ""
 
   # -- Connection URL for the Redis instance this app uses as an optional cache-aside layer in
   # front of its more expensive search queries (see the app's own README) - e.g.
