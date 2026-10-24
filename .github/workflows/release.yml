@@ -49,7 +49,7 @@ jobs:
         with:
           version: "3.17.0"
 
-      - uses: cycjimmy/semantic-release-action@9e1f8a3ef91f1097285028e799a5fb8bb90e8899 # v4
+      - uses: cycjimmy/semantic-release-action@d9bf53a078bd2f86aaffaec796dbb3d28f1b6f34 # v4
         with:
           semantic_version: 24
           extra_plugins: |
