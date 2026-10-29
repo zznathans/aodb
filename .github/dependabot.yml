@@ -4,26 +4,26 @@ updates:
   - package-ecosystem: pip
     directory: "/api"
     schedule:
-      interval: weekly
+      interval: daily
 
   # requirements-ci.txt at repo root - CI-only tooling (yamllint) that
   # isn't an api/ dependency.
   - package-ecosystem: pip
     directory: "/"
     schedule:
-      interval: weekly
+      interval: daily
 
   - package-ecosystem: docker
     directory: "/api"
     schedule:
-      interval: weekly
+      interval: daily
 
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
-      interval: weekly
+      interval: daily
 
   - package-ecosystem: npm
     directory: "/"
     schedule:
-      interval: weekly
+      interval: daily
