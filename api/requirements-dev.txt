@@ -354,9 +354,9 @@ email-validator==2.3.0 \
     # via
     #   fastapi
     #   pydantic
-fakeredis==2.40.0 \
-    --hash=sha256:16eb05a3e97c37a033c73d1da7e885eb2aa47ba7604cc377144339efa2780a02 \
-    --hash=sha256:b155ef2442134372eb1cc5664cf5638ccbe0a6dde9d1942153708e2782f315c9
+fakeredis==2.41.0 \
+    --hash=sha256:9a2bb58889e8bf646b991324ac4d226a3ae74a3bdde7b6e533c7072c853f236e \
+    --hash=sha256:a10d97197e6c6e9e98affc10abba9fb0efa9bc5671bbc425dca7f47063c2c577
     # via -r requirements-dev.in
 fastapi[standard]==0.165.0 \
     --hash=sha256:896f48462042bb4f162147eb8fac7e858753dc1f486765709baf105d70e4fc5b \
